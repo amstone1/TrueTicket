@@ -1,0 +1,595 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id                String    @id @default(cuid())
+  email             String?   @unique
+  phone             String?   @unique
+  walletAddress     String    @unique
+  privyUserId       String?   @unique
+
+  displayName       String?
+  avatarUrl         String?
+  bio               String?
+
+  isVerified        Boolean   @default(false)
+  isArtist          Boolean   @default(false)
+  isVenue           Boolean   @default(false)
+  isAdmin           Boolean   @default(false)
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+
+  ownedTickets      Ticket[]  @relation("TicketOwner")
+  createdEvents     Event[]   @relation("EventOrganizer")
+  resaleListings    ResaleListing[] @relation("ListingSeller")
+  purchases         Purchase[]
+  payouts           Payout[]
+  notifications     Notification[]
+  favoriteEvents    EventFavorite[]
+
+  @@index([walletAddress])
+  @@index([email])
+}
+
+// ============================================
+// EVENTS
+// ============================================
+
+model Event {
+  id                  String    @id @default(cuid())
+
+  contractAddress     String?
+  chainId             Int       @default(137)
+  eventIdOnChain      BigInt?
+
+  name                String
+  slug                String    @unique
+  description         String
+  shortDescription    String?
+
+  category            EventCategory
+  tags                String[]
+
+  startDate           DateTime
+  endDate             DateTime?
+  doorsOpen           DateTime?
+  timezone            String    @default("America/New_York")
+
+  locationType        LocationType @default(IN_PERSON)
+  venueName           String?
+  venueAddress        String?
+  city                String?
+  state               String?
+  country             String?
+  postalCode          String?
+  latitude            Float?
+  longitude           Float?
+  virtualUrl          String?
+
+  coverImageUrl       String?
+  coverImageIpfsHash  String?
+  thumbnailUrl        String?
+  galleryImages       Json?
+
+  totalCapacity       Int
+
+  resaleEnabled       Boolean   @default(true)
+  maxResaleMarkupBps  Int?      // Max markup in basis points (1000 = 10%)
+  resaleRoyaltyBps    Int       @default(1000) // 10% default royalty
+
+  artistWallet        String?
+  venueWallet         String?
+  hostWallet          String?
+  artistRoyaltyBps    Int       @default(5000) // 50% of royalty to artist
+  venueRoyaltyBps     Int       @default(3000) // 30% to venue
+  hostRoyaltyBps      Int       @default(1500) // 15% to host
+  platformRoyaltyBps  Int       @default(500)  // 5% to platform
+
+  status              EventStatus @default(DRAFT)
+  isPublished         Boolean   @default(false)
+  isFeatured          Boolean   @default(false)
+  publishedAt         DateTime?
+
+  organizerId         String
+  organizer           User      @relation("EventOrganizer", fields: [organizerId], references: [id])
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  ticketTiers         TicketTier[]
+  tickets             Ticket[]
+  resaleListings      ResaleListing[]
+  purchases           Purchase[]
+  favorites           EventFavorite[]
+  checkIns            CheckIn[]
+
+  @@index([organizerId])
+  @@index([status])
+  @@index([startDate])
+  @@index([city, state])
+  @@index([category])
+  @@index([slug])
+  @@index([contractAddress])
+}
+
+model TicketTier {
+  id                String    @id @default(cuid())
+  eventId           String
+  event             Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  name              String
+  description       String?
+
+  priceUsd          Float
+  priceMatic        Float?
+
+  totalQuantity     Int
+  soldQuantity      Int       @default(0)
+  reservedQuantity  Int       @default(0)
+
+  maxPerWallet      Int       @default(10)
+
+  saleStartDate     DateTime?
+  saleEndDate       DateTime?
+
+  perks             String[]
+
+  ticketImageUrl    String?
+  ticketImageIpfs   String?
+  metadataUri       String?
+
+  isActive          Boolean   @default(true)
+  tierIdOnChain     BigInt?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tickets           Ticket[]
+
+  @@index([eventId])
+}
+
+enum EventCategory {
+  MUSIC
+  SPORTS
+  ARTS
+  THEATER
+  COMEDY
+  CONFERENCE
+  FESTIVAL
+  NETWORKING
+  OTHER
+}
+
+enum LocationType {
+  IN_PERSON
+  VIRTUAL
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+// ============================================
+// TICKETS
+// ============================================
+
+model Ticket {
+  id                String    @id @default(cuid())
+
+  tokenId           BigInt?
+  contractAddress   String?
+  chainId           Int       @default(137)
+
+  eventId           String
+  event             Event     @relation(fields: [eventId], references: [id])
+  tierId            String
+  tier              TicketTier @relation(fields: [tierId], references: [id])
+  ownerId           String
+  owner             User      @relation("TicketOwner", fields: [ownerId], references: [id])
+
+  metadataUri       String?
+  imageUri          String?
+
+  status            TicketStatus @default(VALID)
+  isListed          Boolean   @default(false)
+
+  checkInCode       String?   @unique
+  checkInCodeHash   String?
+
+  purchaseId        String?
+  originalPriceUsd  Float
+
+  mintedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  resaleListings    ResaleListing[]
+  checkIns          CheckIn[]
+  transfers         TicketTransfer[]
+
+  @@index([eventId])
+  @@index([ownerId])
+  @@index([tokenId, contractAddress])
+  @@index([status])
+  @@index([checkInCode])
+}
+
+model TicketTransfer {
+  id            String    @id @default(cuid())
+  ticketId      String
+  ticket        Ticket    @relation(fields: [ticketId], references: [id])
+
+  fromAddress   String
+  toAddress     String
+  txHash        String?
+
+  transferType  TransferType
+  priceUsd      Float?
+
+  createdAt     DateTime  @default(now())
+
+  @@index([ticketId])
+  @@index([txHash])
+}
+
+enum TicketStatus {
+  PENDING_MINT
+  VALID
+  USED
+  EXPIRED
+  REVOKED
+  TRANSFERRED
+}
+
+enum TransferType {
+  MINT
+  PURCHASE
+  RESALE
+  GIFT
+  TRANSFER
+}
+
+// ============================================
+// RESALE MARKETPLACE
+// ============================================
+
+model ResaleListing {
+  id              String    @id @default(cuid())
+
+  ticketId        String
+  ticket          Ticket    @relation(fields: [ticketId], references: [id])
+  eventId         String
+  event           Event     @relation(fields: [eventId], references: [id])
+  sellerId        String
+  seller          User      @relation("ListingSeller", fields: [sellerId], references: [id])
+
+  priceUsd        Float
+  priceMatic      Float?
+
+  status          ListingStatus @default(ACTIVE)
+
+  listingIdOnChain BigInt?
+
+  listedAt        DateTime  @default(now())
+  expiresAt       DateTime?
+  soldAt          DateTime?
+  cancelledAt     DateTime?
+
+  buyerId         String?
+  purchaseId      String?
+
+  @@index([eventId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([ticketId])
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+// ============================================
+// PURCHASES & PAYMENTS
+// ============================================
+
+model Purchase {
+  id                  String    @id @default(cuid())
+
+  userId              String
+  user                User      @relation(fields: [userId], references: [id])
+
+  eventId             String
+  event               Event     @relation(fields: [eventId], references: [id])
+
+  paymentMethod       PaymentMethod
+  paymentProvider     String?
+
+  stripePaymentIntentId String? @unique
+  stripeSessionId     String?
+
+  cryptoTxHash        String?
+  cryptoCurrency      String?
+  cryptoAmount        String?
+
+  subtotalUsd         Float
+  feesUsd             Float
+  totalUsd            Float
+
+  sponsoredGas        Boolean   @default(false)
+  gasSponsored        String?
+
+  status              PurchaseStatus @default(PENDING)
+
+  ticketQuantity      Int
+  ticketIds           String[]
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  completedAt         DateTime?
+  refundedAt          DateTime?
+
+  @@index([userId])
+  @@index([eventId])
+  @@index([status])
+  @@index([stripePaymentIntentId])
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  CRYPTO_MATIC
+  CRYPTO_USDC
+  CRYPTO_ETH
+  FREE
+}
+
+enum PurchaseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+// ============================================
+// PAYOUTS
+// ============================================
+
+model Payout {
+  id                String    @id @default(cuid())
+
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+
+  amountUsd         Float
+  amountCrypto      String?
+  currency          String    @default("USD")
+
+  payoutMethod      PayoutMethod
+
+  stripeTransferId  String?
+  stripeAccountId   String?
+
+  cryptoTxHash      String?
+  cryptoAddress     String?
+
+  status            PayoutStatus @default(PENDING)
+
+  sourceType        String
+  sourceIds         String[]
+
+  createdAt         DateTime  @default(now())
+  processedAt       DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum PayoutMethod {
+  STRIPE_CONNECT
+  CRYPTO_MATIC
+  CRYPTO_USDC
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================
+// CHECK-INS
+// ============================================
+
+model CheckIn {
+  id            String    @id @default(cuid())
+
+  ticketId      String
+  ticket        Ticket    @relation(fields: [ticketId], references: [id])
+  eventId       String
+  event         Event     @relation(fields: [eventId], references: [id])
+
+  method        CheckInMethod
+
+  gate          String?
+  scannedBy     String?
+
+  deviceId      String?
+  ipAddress     String?
+
+  status        CheckInStatus @default(SUCCESS)
+  failureReason String?
+
+  txHash        String?
+
+  checkedInAt   DateTime  @default(now())
+
+  @@index([ticketId])
+  @@index([eventId])
+}
+
+enum CheckInMethod {
+  QR_CODE
+  NFC
+  MANUAL
+  WALLET_SIGNATURE
+}
+
+enum CheckInStatus {
+  SUCCESS
+  FAILED_INVALID
+  FAILED_ALREADY_USED
+  FAILED_WRONG_EVENT
+  FAILED_EXPIRED
+}
+
+// ============================================
+// BLOCKCHAIN SYNC
+// ============================================
+
+model BlockchainSync {
+  id                String    @id @default(cuid())
+
+  chainId           Int
+  contractAddress   String
+  lastBlockNumber   BigInt
+  lastBlockHash     String?
+
+  eventType         String
+
+  status            SyncStatus @default(SYNCING)
+  errorMessage      String?
+
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([chainId, contractAddress, eventType])
+  @@index([chainId, contractAddress])
+}
+
+model BlockchainTransaction {
+  id                String    @id @default(cuid())
+
+  txHash            String    @unique
+  chainId           Int
+
+  fromAddress       String
+  toAddress         String?
+
+  status            TxStatus  @default(PENDING)
+  blockNumber       BigInt?
+  gasUsed           String?
+
+  isMetaTx          Boolean   @default(false)
+  relayerAddress    String?
+  userOpHash        String?
+
+  purchaseId        String?
+  ticketId          String?
+  listingId         String?
+
+  errorMessage      String?
+  retryCount        Int       @default(0)
+
+  createdAt         DateTime  @default(now())
+  confirmedAt       DateTime?
+
+  @@index([txHash])
+  @@index([status])
+  @@index([purchaseId])
+}
+
+enum SyncStatus {
+  SYNCING
+  SYNCED
+  ERROR
+  PAUSED
+}
+
+enum TxStatus {
+  PENDING
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  DROPPED
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id            String    @id @default(cuid())
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+
+  type          NotificationType
+  title         String
+  message       String
+  data          Json?
+
+  isRead        Boolean   @default(false)
+  readAt        DateTime?
+
+  emailSent     Boolean   @default(false)
+  smsSent       Boolean   @default(false)
+  pushSent      Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+enum NotificationType {
+  TICKET_PURCHASED
+  TICKET_MINTED
+  TICKET_TRANSFERRED
+  TICKET_SOLD
+  EVENT_REMINDER
+  EVENT_CANCELLED
+  EVENT_UPDATED
+  PAYOUT_COMPLETED
+  LISTING_SOLD
+  PRICE_DROP_ALERT
+}
+
+// ============================================
+// FAVORITES
+// ============================================
+
+model EventFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+}
