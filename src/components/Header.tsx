@@ -55,7 +55,7 @@ export default function Header() {
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm font-bold">
-                    {user.displayName?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                    {user.displayName?.charAt(0) || user.email?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
                   <span className="text-sm text-gray-300 hidden lg:block">{user.displayName || user.email}</span>
                   <span className={`text-xs px-2 py-0.5 rounded ${getRoleColor(user.role)} hidden lg:block`}>
