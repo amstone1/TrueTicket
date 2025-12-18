@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { randomBytes, createHash } from 'crypto';
 import { verifyAuth } from '@/lib/auth/verify';
+import { serializeForJson } from '@/lib/utils';
 
 function generateCheckInCode(): string {
   return randomBytes(16).toString('hex').toUpperCase();
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
       updatedAt: ticket.updatedAt.toISOString(),
     }));
 
-    return NextResponse.json({ tickets: transformedTickets });
+    return NextResponse.json(serializeForJson({ tickets: transformedTickets }));
   } catch (error) {
     console.error('Error fetching tickets:', error);
     return NextResponse.json(
