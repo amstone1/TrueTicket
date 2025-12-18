@@ -76,7 +76,7 @@ export async function GET(
         margin: 2,
       });
 
-      return new NextResponse(png, {
+      return new NextResponse(new Uint8Array(png), {
         headers: {
           'Content-Type': 'image/png',
           'Cache-Control': 'private, max-age=3600',
