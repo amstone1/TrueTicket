@@ -36,7 +36,9 @@
       "Bash(npx tsx:*)",
       "Bash(npx prisma:*)",
       "Bash(dir node_modulesjosedistnodecjs)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
