@@ -19,28 +19,31 @@ function useTabsContext() {
 }
 
 export interface TabsProps {
-  defaultValue: string;
+  defaultValue?: string;
   value?: string;
   onValueChange?: (value: string) => void;
+  onChange?: (value: string) => void; // Alias for onValueChange
   children: ReactNode;
   className?: string;
 }
 
 export function Tabs({
-  defaultValue,
+  defaultValue = '',
   value,
   onValueChange,
+  onChange,
   children,
   className,
 }: TabsProps) {
-  const [internalValue, setInternalValue] = useState(defaultValue);
+  const [internalValue, setInternalValue] = useState(defaultValue || value || '');
   const activeTab = value ?? internalValue;
+  const callback = onValueChange || onChange;
 
   const setActiveTab = (tab: string) => {
-    if (!value) {
+    if (value === undefined) {
       setInternalValue(tab);
     }
-    onValueChange?.(tab);
+    callback?.(tab);
   };
 
   return (
@@ -125,6 +128,48 @@ export function TabsContent({ value, children, className }: TabsContentProps) {
       role="tabpanel"
       className={cn('mt-4', className)}
     >
+      {children}
+    </div>
+  );
+}
+
+// Alternative API - simpler controlled tabs
+export interface SimpleTabsProps {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  className?: string;
+}
+
+export function Tab({ value, children, className }: { value: string; children: ReactNode; className?: string }) {
+  const { activeTab, setActiveTab } = useTabsContext();
+  const isActive = activeTab === value;
+
+  return (
+    <button
+      role="tab"
+      aria-selected={isActive}
+      onClick={() => setActiveTab(value)}
+      className={cn(
+        'px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+        isActive
+          ? 'bg-indigo-100 text-indigo-700'
+          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function TabPanel({ value, children, className }: { value: string; children: ReactNode; className?: string }) {
+  const { activeTab } = useTabsContext();
+
+  if (activeTab !== value) return null;
+
+  return (
+    <div role="tabpanel" className={className}>
       {children}
     </div>
   );
