@@ -23,8 +23,8 @@ export async function GET(
 
     // Verify authentication
     const authResult = await verifyAuth(request);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    if (!authResult.authenticated || !authResult.userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     // Generate rotating verification code
@@ -70,8 +70,8 @@ export async function POST(
 
     // Verify authentication (scanner must be authenticated)
     const authResult = await verifyAuth(request);
-    if (!authResult.success) {
-      return NextResponse.json({ error: authResult.error }, { status: 401 });
+    if (!authResult.authenticated || !authResult.userId) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const body = await request.json();
