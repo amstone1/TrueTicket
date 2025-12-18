@@ -57,15 +57,9 @@ export async function GET(request: NextRequest) {
         return sum + purchase.subtotalUsd;
       }, 0);
 
-      // Resale royalties - calculate from resale purchases
-      const resalePurchases = event.purchases.filter(
-        (p) => p.purchaseType === 'RESALE'
-      );
-      const resaleRoyalties = resalePurchases.reduce((sum, p) => {
-        // Royalty is typically 10% of resale price, split according to event rules
-        const royaltyAmount = (p.totalUsd || 0) * (event.resaleRoyaltyBps / 10000);
-        return sum + royaltyAmount;
-      }, 0);
+      // Resale royalties - TODO: implement when resale tracking is added
+      // For now, estimate from ResaleListing completions
+      const resaleRoyalties = 0; // Placeholder
 
       const ticketsSold = event.tickets.filter(
         (t) => t.status !== 'CANCELLED'
