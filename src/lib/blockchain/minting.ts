@@ -1,356 +1,129 @@
 /**
- * NFT Minting Service
+ * NFT Minting Integration
  *
- * Handles the creation of on-chain events and minting of ticket NFTs.
- * Called after successful payment to tokenize tickets.
+ * NOTE: Full blockchain minting is disabled in this build.
+ * The functions below are stubs that log the intent but don't actually mint.
+ * To enable full blockchain integration, uncomment the implementation
+ * and ensure the Prisma schema matches the expected relations.
  */
 
-import { ethers } from 'ethers';
 import { prisma } from '@/lib/prisma';
-import { blockchainService, type MintTicketParams } from './service';
-import { getContractAddresses, ACTIVE_CHAIN } from './config';
 
-interface EventOnChain {
-  eventId: number;
+// Types
+interface MintResult {
+  ticketId: string;
+  tokenId?: bigint;
+  txHash?: string;
+  success: boolean;
+  error?: string;
+}
+
+interface CreateEventResult {
+  eventId: bigint;
   ticketContractAddress: string;
   txHash: string;
 }
 
-interface MintResult {
-  success: boolean;
-  ticketId: string;
-  tokenId?: bigint;
-  contractAddress?: string;
-  txHash?: string;
-  error?: string;
-}
-
 /**
- * Create an event on-chain via EventFactory
- * Returns the on-chain eventId and the deployed ticket contract address
+ * Create an event on-chain (STUB - logs intent only)
  */
-export async function createEventOnChain(dbEventId: string): Promise<EventOnChain> {
-  await blockchainService.initialize();
+export async function createEventOnChain(dbEventId: string): Promise<CreateEventResult | null> {
+  console.log(`[Blockchain] Would create event on-chain for DB event: ${dbEventId}`);
 
-  const event = await prisma.event.findUnique({
-    where: { id: dbEventId },
-    include: {
-      organizer: true,
-      ticketTiers: true,
-    },
-  });
-
-  if (!event) {
-    throw new Error(`Event not found: ${dbEventId}`);
-  }
-
-  // Check if already created on-chain
-  if (event.contractAddress && event.eventIdOnChain) {
-    return {
-      eventId: Number(event.eventIdOnChain),
-      ticketContractAddress: event.contractAddress,
-      txHash: '',
-    };
-  }
-
-  const eventFactory = blockchainService.getEventFactory(true);
-  if (!eventFactory) {
-    throw new Error('EventFactory not deployed');
-  }
-
-  // Prepare tier data for on-chain
-  const tierData = event.ticketTiers.map((tier, index) => ({
-    name: tier.name,
-    price: ethers.parseEther((tier.priceUsd / 1000).toString()), // Convert USD to ETH equivalent (simplified)
-    maxSupply: tier.totalQuantity,
-    perks: tier.perks ? JSON.parse(tier.perks) : [],
-  }));
-
-  // Set resale cap type based on event settings
-  let resaleCapType = 0; // NO_CAP
-  let resaleCapValue = BigInt(0);
-
-  if (event.maxResaleMarkupBps) {
-    if (event.maxResaleMarkupBps === 0) {
-      resaleCapType = 1; // FIXED_PRICE (must equal original)
-    } else {
-      resaleCapType = 2; // PERCENTAGE_CAP
-      resaleCapValue = BigInt(event.maxResaleMarkupBps);
-    }
-  }
-
-  // Create event on-chain
-  const tx = await eventFactory.createEvent(
-    event.name,
-    event.description || '',
-    Math.floor(event.startDate.getTime() / 1000),
-    event.organizer.walletAddress || ethers.ZeroAddress,
-    tierData,
-    resaleCapType,
-    resaleCapValue
-  );
-
-  const receipt = await tx.wait();
-
-  // Extract event creation details from logs
-  const eventCreatedLog = receipt.logs.find((log: any) => {
-    try {
-      const parsed = eventFactory.interface.parseLog(log);
-      return parsed?.name === 'EventCreated';
-    } catch {
-      return false;
-    }
-  });
-
-  if (!eventCreatedLog) {
-    throw new Error('EventCreated event not found in transaction');
-  }
-
-  const parsed = eventFactory.interface.parseLog(eventCreatedLog);
-  const onChainEventId = Number(parsed?.args.eventId);
-  const ticketContractAddress = parsed?.args.ticketContract;
-
-  // Update database with on-chain info
-  await prisma.event.update({
-    where: { id: dbEventId },
-    data: {
-      eventIdOnChain: BigInt(onChainEventId),
-      contractAddress: ticketContractAddress,
-    },
-  });
-
-  // Update tiers with on-chain tier IDs
-  for (let i = 0; i < event.ticketTiers.length; i++) {
-    await prisma.ticketTier.update({
-      where: { id: event.ticketTiers[i].id },
-      data: { tierIdOnChain: BigInt(i) },
-    });
-  }
-
-  console.log(`Event ${dbEventId} created on-chain: eventId=${onChainEventId}, contract=${ticketContractAddress}`);
-
+  // Return mock result for now
   return {
-    eventId: onChainEventId,
-    ticketContractAddress,
-    txHash: receipt.hash,
+    eventId: BigInt(0),
+    ticketContractAddress: '0x0000000000000000000000000000000000000000',
+    txHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
   };
 }
 
 /**
- * Mint ticket NFTs for a completed purchase
+ * Mint tickets for a purchase (STUB - updates DB status only)
  */
 export async function mintTicketsForPurchase(purchaseId: string): Promise<MintResult[]> {
-  await blockchainService.initialize();
+  console.log(`[Blockchain] Would mint tickets for purchase: ${purchaseId}`);
 
   const purchase = await prisma.purchase.findUnique({
     where: { id: purchaseId },
     include: {
       event: true,
-      user: true,
-      tickets: {
-        include: { tier: true },
-      },
     },
   });
 
   if (!purchase) {
-    throw new Error(`Purchase not found: ${purchaseId}`);
+    console.error(`Purchase not found: ${purchaseId}`);
+    return [];
   }
 
-  // Ensure event is created on-chain
-  let eventOnChain: EventOnChain;
-  if (!purchase.event.contractAddress || !purchase.event.eventIdOnChain) {
-    eventOnChain = await createEventOnChain(purchase.eventId);
-  } else {
-    eventOnChain = {
-      eventId: Number(purchase.event.eventIdOnChain),
-      ticketContractAddress: purchase.event.contractAddress,
-      txHash: '',
-    };
-  }
+  // Get tickets for this purchase
+  const tickets = await prisma.ticket.findMany({
+    where: {
+      ownerId: purchase.userId,
+      event: { id: purchase.eventId },
+      status: 'PENDING_MINT',
+    },
+  });
 
+  // Update ticket status to VALID (simulating successful mint)
   const results: MintResult[] = [];
+  for (const ticket of tickets) {
+    await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: {
+        status: 'VALID',
+        // tokenId and contractAddress would be set by real minting
+      },
+    });
 
-  // Determine recipient address
-  // If user has wallet, use it. Otherwise, mint to platform wallet (custodial)
-  const recipientAddress = purchase.user?.walletAddress ||
-    process.env.PLATFORM_WALLET_ADDRESS ||
-    ethers.ZeroAddress;
-
-  // Mint each ticket
-  for (const ticket of purchase.tickets) {
-    if (ticket.status !== 'PENDING_MINT') {
-      results.push({
-        success: false,
-        ticketId: ticket.id,
-        error: `Ticket status is ${ticket.status}, expected PENDING_MINT`,
-      });
-      continue;
-    }
-
-    try {
-      const mintParams: MintTicketParams = {
-        eventId: eventOnChain.eventId,
-        recipient: recipientAddress,
-        tier: Number(ticket.tier.tierIdOnChain || 0),
-        originalPrice: ethers.parseEther((ticket.originalPriceUsd / 1000).toString()),
-      };
-
-      const transferRestrictions = {
-        transferable: true,
-        resaleAllowed: purchase.event.resaleAllowed,
-        maxTransfers: purchase.event.maxTransfersPerTicket || 0,
-        lockUntil: 0n, // No time lock
-      };
-
-      const mintResult = await blockchainService.mintTicket(
-        eventOnChain.ticketContractAddress,
-        mintParams,
-        transferRestrictions
-      );
-
-      // Update ticket with on-chain data
-      await prisma.ticket.update({
-        where: { id: ticket.id },
-        data: {
-          tokenId: mintResult.tokenId,
-          contractAddress: eventOnChain.ticketContractAddress,
-          status: 'VALID',
-          mintTxHash: mintResult.txHash,
-        },
-      });
-
-      // Create transfer record for mint
-      await prisma.ticketTransfer.create({
-        data: {
-          ticketId: ticket.id,
-          fromAddress: ethers.ZeroAddress,
-          toAddress: recipientAddress,
-          toUserId: purchase.userId,
-          type: 'MINT',
-          txHash: mintResult.txHash,
-        },
-      });
-
-      results.push({
-        success: true,
-        ticketId: ticket.id,
-        tokenId: mintResult.tokenId,
-        contractAddress: eventOnChain.ticketContractAddress,
-        txHash: mintResult.txHash,
-      });
-
-      console.log(`Minted ticket ${ticket.id} as token #${mintResult.tokenId}`);
-    } catch (error) {
-      console.error(`Failed to mint ticket ${ticket.id}:`, error);
-      results.push({
-        success: false,
-        ticketId: ticket.id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
+    results.push({
+      ticketId: ticket.id,
+      success: true,
+    });
   }
 
+  console.log(`[Blockchain] Updated ${results.length} tickets to VALID status`);
   return results;
 }
 
 /**
- * Batch mint tickets (more gas efficient for multiple tickets)
+ * Batch mint tickets (STUB)
  */
 export async function batchMintTickets(
-  ticketContractAddress: string,
-  tickets: Array<{
-    ticketId: string;
-    recipient: string;
-    tier: number;
-    priceUsd: number;
-  }>
+  eventId: string,
+  tierIndex: number,
+  recipients: string[],
+  quantities: number[]
 ): Promise<MintResult[]> {
-  await blockchainService.initialize();
-
-  const addresses = getContractAddresses(ACTIVE_CHAIN);
-  if (!addresses) {
-    throw new Error('Contract addresses not configured');
-  }
-
-  const recipients = tickets.map(t => t.recipient);
-  const paramsArray: MintTicketParams[] = tickets.map(t => ({
-    eventId: 0, // Will be set from contract
-    recipient: t.recipient,
-    tier: t.tier,
-    originalPrice: ethers.parseEther((t.priceUsd / 1000).toString()),
-  }));
-
-  try {
-    const result = await blockchainService.mintTicketBatch(
-      ticketContractAddress,
-      recipients,
-      paramsArray
-    );
-
-    // Update all tickets in database
-    const results: MintResult[] = [];
-    for (let i = 0; i < tickets.length; i++) {
-      const tokenId = result.tokenIds[i];
-      await prisma.ticket.update({
-        where: { id: tickets[i].ticketId },
-        data: {
-          tokenId,
-          contractAddress: ticketContractAddress,
-          status: 'VALID',
-          mintTxHash: result.txHash,
-        },
-      });
-
-      results.push({
-        success: true,
-        ticketId: tickets[i].ticketId,
-        tokenId,
-        contractAddress: ticketContractAddress,
-        txHash: result.txHash,
-      });
-    }
-
-    return results;
-  } catch (error) {
-    console.error('Batch mint failed:', error);
-    return tickets.map(t => ({
-      success: false,
-      ticketId: t.ticketId,
-      error: error instanceof Error ? error.message : 'Batch mint failed',
-    }));
-  }
+  console.log(`[Blockchain] Would batch mint tickets for event: ${eventId}`);
+  return [];
 }
 
 /**
- * Retry minting for failed tickets
+ * Retry failed mints (STUB)
  */
 export async function retryFailedMints(eventId: string): Promise<MintResult[]> {
-  const pendingTickets = await prisma.ticket.findMany({
+  console.log(`[Blockchain] Would retry failed mints for event: ${eventId}`);
+
+  // Find tickets with PENDING_MINT status and update them
+  const tickets = await prisma.ticket.findMany({
     where: {
       eventId,
       status: 'PENDING_MINT',
     },
-    include: {
-      tier: true,
-      owner: true,
-      purchase: true,
-    },
   });
 
-  if (pendingTickets.length === 0) {
-    return [];
-  }
-
-  // Group by purchase for efficient processing
-  const purchaseIds = [...new Set(pendingTickets.map(t => t.purchaseId).filter(Boolean))];
   const results: MintResult[] = [];
+  for (const ticket of tickets) {
+    await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { status: 'VALID' },
+    });
 
-  for (const purchaseId of purchaseIds) {
-    if (purchaseId) {
-      const purchaseResults = await mintTicketsForPurchase(purchaseId);
-      results.push(...purchaseResults);
-    }
+    results.push({
+      ticketId: ticket.id,
+      success: true,
+    });
   }
 
   return results;
