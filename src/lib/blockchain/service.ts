@@ -163,7 +163,7 @@ class BlockchainService {
 
     const restrictions = {
       transferable: transferRestrictions?.transferable ?? true,
-      lockUntil: transferRestrictions?.lockUntil ?? 0n,
+      lockUntil: transferRestrictions?.lockUntil ?? BigInt(0),
       maxTransfers: transferRestrictions?.maxTransfers ?? 0, // 0 = unlimited
       transferCount: 0,
       resaleAllowed: transferRestrictions?.resaleAllowed ?? true,
@@ -225,7 +225,7 @@ class BlockchainService {
 
     const restrictions = {
       transferable: transferRestrictions?.transferable ?? true,
-      lockUntil: transferRestrictions?.lockUntil ?? 0n,
+      lockUntil: transferRestrictions?.lockUntil ?? BigInt(0),
       maxTransfers: transferRestrictions?.maxTransfers ?? 0,
       transferCount: 0,
       resaleAllowed: transferRestrictions?.resaleAllowed ?? true,
