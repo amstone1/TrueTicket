@@ -58,13 +58,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (user) {
+      const extUser = user as typeof user & { phone?: string; bio?: string };
       setProfileData({
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         displayName: user.displayName || '',
         email: user.email || '',
-        phone: user.phone || '',
-        bio: user.bio || '',
+        phone: extUser.phone || '',
+        bio: extUser.bio || '',
       });
     }
   }, [user]);
