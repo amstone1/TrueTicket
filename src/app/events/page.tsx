@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Container } from '@/components/layout/Container';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -11,7 +11,9 @@ import { NoEventsEmpty } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import type { Event, EventFilters as Filters, EventCategory } from '@/types';
 
-export default function EventsPage() {
+export const dynamic = 'force-dynamic';
+
+function EventsContent() {
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,5 +144,13 @@ export default function EventsPage() {
         </div>
       </Container>
     </div>
+  );
+}
+
+export default function EventsPage() {
+  return (
+    <Suspense fallback={<ListSkeleton count={12} />}>
+      <EventsContent />
+    </Suspense>
   );
 }

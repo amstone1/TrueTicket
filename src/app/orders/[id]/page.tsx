@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Container } from '@/components/layout/Container';
@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import type { Purchase } from '@/types';
 
+export const dynamic = 'force-dynamic';
+
 interface OrderData extends Purchase {
   tickets: {
     id: string;
@@ -34,8 +36,7 @@ interface OrderData extends Purchase {
   }[];
 }
 
-export default function OrderConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+function OrderContent({ id }: { id: string }) {
   const searchParams = useSearchParams();
   const isSuccess = searchParams.get('success') === 'true';
 
@@ -305,5 +306,30 @@ export default function OrderConfirmationPage({ params }: { params: Promise<{ id
         </div>
       </Container>
     </div>
+  );
+}
+
+function OrderLoading() {
+  return (
+    <div className="bg-gray-50 min-h-screen pb-12">
+      <Container className="py-8">
+        <div className="max-w-2xl mx-auto">
+          <Skeleton className="h-16 w-16 rounded-full mx-auto mb-4" />
+          <Skeleton className="h-8 w-48 mx-auto mb-2" />
+          <Skeleton className="h-4 w-64 mx-auto mb-8" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </Container>
+    </div>
+  );
+}
+
+export default function OrderConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+
+  return (
+    <Suspense fallback={<OrderLoading />}>
+      <OrderContent id={id} />
+    </Suspense>
   );
 }
