@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
         time: c.checkedInAt,
         gate: c.gate,
         tier: c.ticket.tier.name,
-        guest: c.ticket.owner.displayName || c.ticket.owner.walletAddress.slice(0, 10) + '...',
+        guest: c.ticket.owner.displayName || (c.ticket.owner.walletAddress ? c.ticket.owner.walletAddress.slice(0, 10) + '...' : 'Unknown'),
       })),
     });
   } catch (error) {
