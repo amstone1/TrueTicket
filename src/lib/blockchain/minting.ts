@@ -36,7 +36,7 @@ export async function createEventOnChain(dbEventId: string): Promise<EventOnChai
     where: { id: dbEventId },
     include: {
       organizer: true,
-      tiers: true,
+      ticketTiers: true,
     },
   });
 
@@ -59,7 +59,7 @@ export async function createEventOnChain(dbEventId: string): Promise<EventOnChai
   }
 
   // Prepare tier data for on-chain
-  const tierData = event.tiers.map((tier, index) => ({
+  const tierData = event.ticketTiers.map((tier, index) => ({
     name: tier.name,
     price: ethers.parseEther((tier.priceUsd / 1000).toString()), // Convert USD to ETH equivalent (simplified)
     maxSupply: tier.quantity,
@@ -120,9 +120,9 @@ export async function createEventOnChain(dbEventId: string): Promise<EventOnChai
   });
 
   // Update tiers with on-chain tier IDs
-  for (let i = 0; i < event.tiers.length; i++) {
+  for (let i = 0; i < event.ticketTiers.length; i++) {
     await prisma.ticketTier.update({
-      where: { id: event.tiers[i].id },
+      where: { id: event.ticketTiers[i].id },
       data: { tierIdOnChain: BigInt(i) },
     });
   }
