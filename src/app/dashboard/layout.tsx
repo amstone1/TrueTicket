@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sidebar, MobileSidebar, SidebarLink } from '@/components/layout/Sidebar';
-import { useAuth, useRequireCreator } from '@/hooks/useAuth';
+import { Sidebar, SidebarLink } from '@/components/layout/Sidebar';
+import { useAuth } from '@/hooks/useAuth';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Menu, X } from 'lucide-react';
 import {
   LayoutDashboard,
   Calendar,
@@ -34,6 +35,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Check if user has creator permissions
   const isCreator = user?.isArtist || user?.isVenue || user?.role === 'ORGANIZER' || user?.role === 'ADMIN';
@@ -75,19 +77,38 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile Sidebar */}
-      <div className="lg:hidden">
-        <MobileSidebar links={sidebarLinks} />
+      {/* Mobile header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <span className="text-lg font-semibold text-gray-900">Dashboard</span>
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 text-gray-600 hover:text-gray-900"
+        >
+          {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
       </div>
+
+      {/* Mobile Sidebar Overlay */}
+      {mobileMenuOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 z-50 lg:hidden">
+            <Sidebar links={sidebarLinks} className="shadow-xl" />
+          </div>
+        </>
+      )}
 
       <div className="flex">
         {/* Desktop Sidebar */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block fixed inset-y-0 left-0 z-20">
           <Sidebar links={sidebarLinks} />
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 min-h-screen lg:ml-64">
+        <main className="flex-1 min-h-screen lg:ml-64 pt-14 lg:pt-0">
           {children}
         </main>
       </div>
