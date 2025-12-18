@@ -125,6 +125,33 @@ async function main() {
   console.log(`NEXT_PUBLIC_MARKETPLACE_ADDRESS=${marketplaceAddress}`);
   console.log(`NEXT_PUBLIC_PRICING_CONTROLLER_ADDRESS=${pricingControllerAddress}`);
   console.log(`NEXT_PUBLIC_ROYALTY_DISTRIBUTOR_ADDRESS=${royaltyDistributorAddress}`);
+
+  // Write deployment addresses to JSON file for app consumption
+  const fs = require("fs");
+  const deploymentInfo = {
+    chainId: (await ethers.provider.getNetwork()).chainId.toString(),
+    deployer: deployer.address,
+    timestamp: new Date().toISOString(),
+    contracts: {
+      ticketImplementation: ticketImplAddress,
+      eventFactory: eventFactoryAddress,
+      pricingController: pricingControllerAddress,
+      royaltyDistributor: royaltyDistributorAddress,
+      marketplace: marketplaceAddress,
+    },
+  };
+
+  const deploymentPath = "./deployments";
+  if (!fs.existsSync(deploymentPath)) {
+    fs.mkdirSync(deploymentPath);
+  }
+
+  const networkName = hre.network.name;
+  fs.writeFileSync(
+    `${deploymentPath}/${networkName}.json`,
+    JSON.stringify(deploymentInfo, null, 2)
+  );
+  console.log(`\nDeployment info saved to ${deploymentPath}/${networkName}.json`);
 }
 
 main()

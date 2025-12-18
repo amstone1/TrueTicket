@@ -271,7 +271,35 @@ export async function POST(
           }
         }
 
-        // Create listing
+        // Try to list on-chain if ticket is tokenized
+        let onChainListingId: bigint | null = null;
+        let onChainTxHash: string | null = null;
+
+        if (ticket.tokenId && ticket.contractAddress) {
+          try {
+            const { blockchainService } = await import('@/lib/blockchain');
+            const { ethers } = await import('ethers');
+
+            // Convert USD to wei (simplified - in production use price oracle)
+            const priceWei = ethers.parseEther((validated.priceUsd! / 1000).toString());
+
+            // List for 14 days
+            const listingResult = await blockchainService.listTicketOnChain(
+              ticket.contractAddress,
+              BigInt(ticket.tokenId.toString()),
+              priceWei,
+              14 * 24 * 60 * 60 // 14 days in seconds
+            );
+
+            onChainListingId = listingResult.listingId;
+            onChainTxHash = listingResult.txHash;
+          } catch (error) {
+            console.error('On-chain listing failed (continuing with DB only):', error);
+            // Continue with database listing even if on-chain fails
+          }
+        }
+
+        // Create listing in database
         const listResult = await prisma.$transaction(async (tx) => {
           const listing = await tx.resaleListing.create({
             data: {
@@ -281,6 +309,8 @@ export async function POST(
               priceUsd: validated.priceUsd!,
               status: 'ACTIVE',
               expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+              listingIdOnChain: onChainListingId,
+              listingTxHash: onChainTxHash,
             },
           });
 
@@ -296,6 +326,7 @@ export async function POST(
           success: true,
           message: `Ticket listed for $${validated.priceUsd.toFixed(2)}`,
           listing: listResult,
+          onChain: !!onChainListingId,
         }));
       }
 

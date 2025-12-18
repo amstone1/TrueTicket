@@ -177,8 +177,26 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
 
   console.log(`Purchase ${purchaseId} completed with ${ticketIds.length} tickets`);
 
-  // TODO: Queue background job to mint NFTs on blockchain
-  // await queueMintJob({ purchaseId, ticketIds });
+  // Mint NFTs on blockchain
+  // In production, this should be a background job (BullMQ) for reliability
+  try {
+    const { mintTicketsForPurchase } = await import('@/lib/blockchain/minting');
+    const mintResults = await mintTicketsForPurchase(purchaseId);
+
+    const successCount = mintResults.filter(r => r.success).length;
+    const failCount = mintResults.filter(r => !r.success).length;
+
+    console.log(`Minting complete: ${successCount} succeeded, ${failCount} failed`);
+
+    if (failCount > 0) {
+      // Log failures for retry
+      console.error('Failed mints:', mintResults.filter(r => !r.success));
+    }
+  } catch (error) {
+    // Minting failure should not fail the purchase - tickets are in PENDING_MINT state
+    // A background job can retry minting later
+    console.error('Minting failed (will retry):', error);
+  }
 }
 
 async function handleCheckoutExpired(session: Stripe.Checkout.Session) {

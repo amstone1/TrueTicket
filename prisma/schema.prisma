@@ -244,6 +244,7 @@ model Ticket {
   tokenId           BigInt?
   contractAddress   String?
   chainId           Int       @default(137)
+  mintTxHash        String?
 
   eventId           String
   event             Event     @relation(fields: [eventId], references: [id])
@@ -334,6 +335,7 @@ model ResaleListing {
   status          ListingStatus @default(ACTIVE)
 
   listingIdOnChain BigInt?
+  listingTxHash    String?
 
   listedAt        DateTime  @default(now())
   expiresAt       DateTime?
