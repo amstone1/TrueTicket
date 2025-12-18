@@ -162,8 +162,8 @@ export async function POST(
         await tx.ticketTransfer.create({
           data: {
             ticketId: listing.ticketId,
-            fromAddress: listing.seller.walletAddress,
-            toAddress: validated.buyerWallet!,
+            fromAddress: listing.seller.walletAddress || 'platform',
+            toAddress: validated.buyerWallet || 'platform',
             transferType: 'RESALE',
             priceUsd: listing.priceUsd,
           },
