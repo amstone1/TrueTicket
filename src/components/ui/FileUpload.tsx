@@ -180,7 +180,7 @@ export function FileUpload({
       {/* File list for non-image files */}
       {!preview && hasFiles && (
         <div className="mt-3 space-y-2">
-          {(multiple && Array.isArray(value) ? value : [value]).map((file, index) => (
+          {(multiple && Array.isArray(value) ? value : value ? [value] : []).map((file: File, index: number) => (
             file && (
               <div
                 key={index}
