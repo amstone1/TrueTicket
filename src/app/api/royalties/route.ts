@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     // Get payout records
     const payouts = await prisma.payout.findMany({
-      where: { recipientId: user.id },
+      where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
