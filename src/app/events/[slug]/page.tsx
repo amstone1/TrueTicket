@@ -16,7 +16,7 @@ import { formatDate, formatTime, formatUSD } from '@/lib/utils';
 import { Calendar, MapPin, Clock, User, Shield, TrendingUp, ExternalLink, Share2 } from 'lucide-react';
 import type { Event, TicketTier } from '@/types';
 
-interface EventDetailData extends Event {
+interface EventDetailData extends Omit<Event, 'organizer'> {
   resaleListingsCount?: number;
   organizer?: {
     id: string;
