@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Container } from '@/components/layout/Container';
@@ -30,7 +30,10 @@ import {
 
 const PLATFORM_FEE_PERCENT = 10;
 
-export default function CheckoutPage() {
+// Force dynamic rendering due to useSearchParams
+export const dynamic = 'force-dynamic';
+
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -353,5 +356,32 @@ export default function CheckoutPage() {
         </div>
       </Container>
     </div>
+  );
+}
+
+function CheckoutLoading() {
+  return (
+    <div className="bg-gray-50 min-h-screen pb-12">
+      <Container className="py-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-8" />
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-4">
+              <div className="h-32 bg-gray-200 rounded" />
+              <div className="h-32 bg-gray-200 rounded" />
+            </div>
+            <div className="h-64 bg-gray-200 rounded" />
+          </div>
+        </div>
+      </Container>
+    </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<CheckoutLoading />}>
+      <CheckoutContent />
+    </Suspense>
   );
 }
