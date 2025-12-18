@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { serializeForJson } from '@/lib/utils';
 import type { EventFilters, PaginatedResponse, Event } from '@/types';
 
 // GET /api/events - List events with filters
@@ -107,7 +108,7 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(serializeForJson(response));
   } catch (error) {
     console.error('Error fetching events:', error);
     return NextResponse.json(

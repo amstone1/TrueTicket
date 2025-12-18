@@ -7,6 +7,7 @@ import { Container } from '@/components/layout/Container';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Badge, TicketStatusBadge } from '@/components/ui/Badge';
 import { Tabs, Tab, TabPanel } from '@/components/ui/Tabs';
 import { NoTicketsEmpty } from '@/components/ui/EmptyState';
@@ -26,6 +27,10 @@ import {
   Gift,
   CheckCircle,
   AlertCircle,
+  DollarSign,
+  Send,
+  X,
+  Loader2,
 } from 'lucide-react';
 import type { Ticket as TicketType } from '@/types';
 
@@ -48,6 +53,20 @@ export default function MyTicketsPage() {
   const [selectedTicket, setSelectedTicket] = useState<TicketWithDetails | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrLoading, setQrLoading] = useState(false);
+
+  // Sell modal state
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellLoading, setSellLoading] = useState(false);
+  const [sellError, setSellError] = useState('');
+  const [sellSuccess, setSellSuccess] = useState(false);
+
+  // Transfer modal state
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [transferEmail, setTransferEmail] = useState('');
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferError, setTransferError] = useState('');
+  const [transferSuccess, setTransferSuccess] = useState(false);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -97,6 +116,138 @@ export default function MyTicketsPage() {
     setSelectedTicket(ticket);
     setQrCode(null);
     await loadQrCode(ticket.id);
+  };
+
+  // Calculate max resale price for selected ticket
+  const getMaxResalePrice = () => {
+    if (!selectedTicket) return null;
+    if (!selectedTicket.event.maxResaleMarkupBps) return null;
+    const originalPrice = selectedTicket.originalPriceUsd;
+    const maxMarkup = selectedTicket.event.maxResaleMarkupBps / 10000;
+    return originalPrice * (1 + maxMarkup);
+  };
+
+  // Handle sell ticket
+  const handleSellTicket = async () => {
+    if (!selectedTicket || !sellPrice) return;
+
+    setSellLoading(true);
+    setSellError('');
+    setSellSuccess(false);
+
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'list',
+          priceUsd: parseFloat(sellPrice),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSellSuccess(true);
+        fetchTickets(); // Refresh tickets
+        setTimeout(() => {
+          setShowSellModal(false);
+          setSelectedTicket(null);
+          setSellPrice('');
+          setSellSuccess(false);
+        }, 2000);
+      } else {
+        setSellError(data.error || 'Failed to list ticket');
+      }
+    } catch (error) {
+      setSellError('An error occurred. Please try again.');
+    } finally {
+      setSellLoading(false);
+    }
+  };
+
+  // Handle unlist ticket
+  const handleUnlistTicket = async () => {
+    if (!selectedTicket) return;
+
+    setSellLoading(true);
+    setSellError('');
+
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unlist' }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        fetchTickets();
+        setSelectedTicket(null);
+      } else {
+        setSellError(data.error || 'Failed to unlist ticket');
+      }
+    } catch (error) {
+      setSellError('An error occurred. Please try again.');
+    } finally {
+      setSellLoading(false);
+    }
+  };
+
+  // Handle transfer ticket
+  const handleTransferTicket = async () => {
+    if (!selectedTicket || !transferEmail) return;
+
+    setTransferLoading(true);
+    setTransferError('');
+    setTransferSuccess(false);
+
+    try {
+      const res = await fetch(`/api/tickets/${selectedTicket.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'transfer',
+          toEmail: transferEmail,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setTransferSuccess(true);
+        fetchTickets(); // Refresh tickets
+        setTimeout(() => {
+          setShowTransferModal(false);
+          setSelectedTicket(null);
+          setTransferEmail('');
+          setTransferSuccess(false);
+        }, 2000);
+      } else {
+        setTransferError(data.error || 'Failed to transfer ticket');
+      }
+    } catch (error) {
+      setTransferError('An error occurred. Please try again.');
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  // Open sell modal
+  const openSellModal = () => {
+    setSellPrice(selectedTicket?.originalPriceUsd.toString() || '');
+    setSellError('');
+    setSellSuccess(false);
+    setShowSellModal(true);
+  };
+
+  // Open transfer modal
+  const openTransferModal = () => {
+    setTransferEmail('');
+    setTransferError('');
+    setTransferSuccess(false);
+    setShowTransferModal(true);
   };
 
   // Group tickets by event
@@ -262,25 +413,201 @@ export default function MyTicketsPage() {
               )}
 
               {/* Actions */}
-              <div className="pt-4 flex gap-3">
-                {selectedTicket.status === 'VALID' &&
-                  !selectedTicket.isListed &&
-                  selectedTicket.event.resaleEnabled && (
-                    <Link href={`/marketplace/sell?ticketId=${selectedTicket.id}`} className="flex-1">
-                      <Button variant="primary" className="w-full">
-                        <Tag className="w-4 h-4 mr-2" />
-                        List for Resale
+              <div className="pt-4 space-y-3">
+                {selectedTicket.status === 'VALID' && !selectedTicket.isListed && (
+                  <div className="flex gap-3">
+                    {selectedTicket.event.resaleEnabled && (
+                      <Button
+                        variant="primary"
+                        className="flex-1"
+                        onClick={openSellModal}
+                      >
+                        <DollarSign className="w-4 h-4 mr-2" />
+                        Sell Ticket
                       </Button>
-                    </Link>
-                  )}
+                    )}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={openTransferModal}
+                    >
+                      <Send className="w-4 h-4 mr-2" />
+                      Transfer
+                    </Button>
+                  </div>
+                )}
+
+                {selectedTicket.isListed && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleUnlistTicket}
+                    isLoading={sellLoading}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancel Listing
+                  </Button>
+                )}
+
                 <Button
-                  variant="outline"
-                  className="flex-1"
+                  variant="ghost"
+                  className="w-full"
                   onClick={() => setSelectedTicket(null)}
                 >
                   Close
                 </Button>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Sell Ticket Modal */}
+      <Modal
+        isOpen={showSellModal}
+        onClose={() => setShowSellModal(false)}
+        title="List Ticket for Sale"
+        size="sm"
+      >
+        {selectedTicket && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="font-medium text-gray-900">{selectedTicket.event.name}</p>
+              <p className="text-sm text-gray-500">{selectedTicket.tier.name}</p>
+              <p className="text-sm text-gray-500">
+                Original price: {formatUSD(selectedTicket.originalPriceUsd)}
+              </p>
+            </div>
+
+            {getMaxResalePrice() && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">Price Cap in Effect</p>
+                    <p className="text-sm text-amber-700">
+                      Maximum resale price: {formatUSD(getMaxResalePrice()!)}
+                      {' '}({selectedTicket.event.maxResaleMarkupBps! / 100}% above face value)
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Input
+              label="Listing Price (USD)"
+              type="number"
+              min="0"
+              step="0.01"
+              max={getMaxResalePrice() || undefined}
+              value={sellPrice}
+              onChange={(e) => setSellPrice(e.target.value)}
+              leftIcon={<DollarSign className="w-5 h-5" />}
+              placeholder="0.00"
+            />
+
+            {sellError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                {sellError}
+              </div>
+            )}
+
+            {sellSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-sm text-green-700">
+                <CheckCircle className="w-5 h-5" />
+                Ticket listed successfully!
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowSellModal(false)}
+                disabled={sellLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={handleSellTicket}
+                isLoading={sellLoading}
+                disabled={!sellPrice || sellSuccess}
+              >
+                List for Sale
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Transfer Ticket Modal */}
+      <Modal
+        isOpen={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        title="Transfer Ticket"
+        size="sm"
+      >
+        {selectedTicket && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="font-medium text-gray-900">{selectedTicket.event.name}</p>
+              <p className="text-sm text-gray-500">{selectedTicket.tier.name}</p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <Gift className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800">Gift this ticket</p>
+                  <p className="text-sm text-blue-700">
+                    The recipient will receive this ticket in their account.
+                    This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Input
+              label="Recipient's Email"
+              type="email"
+              value={transferEmail}
+              onChange={(e) => setTransferEmail(e.target.value)}
+              placeholder="friend@example.com"
+            />
+
+            {transferError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                {transferError}
+              </div>
+            )}
+
+            {transferSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2 text-sm text-green-700">
+                <CheckCircle className="w-5 h-5" />
+                Ticket transferred successfully!
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowTransferModal(false)}
+                disabled={transferLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={handleTransferTicket}
+                isLoading={transferLoading}
+                disabled={!transferEmail || transferSuccess}
+              >
+                Transfer Ticket
+              </Button>
             </div>
           </div>
         )}

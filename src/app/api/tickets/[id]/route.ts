@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { verifyAuth } from '@/lib/auth/verify';
+import { serializeForJson } from '@/lib/utils';
 
 // GET /api/tickets/[id] - Get ticket details
 export async function GET(
@@ -83,11 +85,14 @@ export async function GET(
   }
 }
 
-// POST /api/tickets/[id] - Transfer ticket
-const transferSchema = z.object({
+// POST /api/tickets/[id] - Transfer, list, or unlist ticket
+const actionSchema = z.object({
   action: z.enum(['transfer', 'list', 'unlist']),
+  // For transfer: email or wallet address of recipient
+  toEmail: z.string().email().optional(),
   toAddress: z.string().optional(),
-  price: z.number().optional(),
+  // For list: price in USD
+  priceUsd: z.number().positive().optional(),
 });
 
 export async function POST(
@@ -95,15 +100,23 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated || !authResult.userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await request.json();
-    const validated = transferSchema.parse(body);
+    const validated = actionSchema.parse(body);
 
+    // Get ticket with relations
     const ticket = await prisma.ticket.findUnique({
       where: { id },
       include: {
         event: true,
         tier: true,
+        owner: true,
       },
     });
 
@@ -114,66 +127,208 @@ export async function POST(
       );
     }
 
+    // Verify ownership
+    if (ticket.ownerId !== authResult.userId) {
+      return NextResponse.json(
+        { error: 'You do not own this ticket' },
+        { status: 403 }
+      );
+    }
+
     if (ticket.status !== 'VALID') {
       return NextResponse.json(
-        { error: 'Ticket is not valid for transfer' },
+        { error: 'Ticket is not valid for this action' },
         { status: 400 }
       );
     }
 
-    if (validated.action === 'transfer') {
-      if (!validated.toAddress) {
-        return NextResponse.json(
-          { error: 'Recipient address required' },
-          { status: 400 }
-        );
+    // Handle different actions
+    switch (validated.action) {
+      case 'transfer': {
+        if (!validated.toEmail && !validated.toAddress) {
+          return NextResponse.json(
+            { error: 'Recipient email or wallet address required' },
+            { status: 400 }
+          );
+        }
+
+        if (ticket.isListed) {
+          return NextResponse.json(
+            { error: 'Cannot transfer a listed ticket. Please unlist first.' },
+            { status: 400 }
+          );
+        }
+
+        // Find or create recipient user
+        let recipient;
+        if (validated.toEmail) {
+          recipient = await prisma.user.findUnique({
+            where: { email: validated.toEmail },
+          });
+          if (!recipient) {
+            // Create a pending user with just email
+            recipient = await prisma.user.create({
+              data: { email: validated.toEmail },
+            });
+          }
+        } else if (validated.toAddress) {
+          recipient = await prisma.user.findUnique({
+            where: { walletAddress: validated.toAddress },
+          });
+          if (!recipient) {
+            recipient = await prisma.user.create({
+              data: { walletAddress: validated.toAddress },
+            });
+          }
+        }
+
+        if (!recipient) {
+          return NextResponse.json(
+            { error: 'Could not find or create recipient' },
+            { status: 400 }
+          );
+        }
+
+        // Cannot transfer to yourself
+        if (recipient.id === authResult.userId) {
+          return NextResponse.json(
+            { error: 'Cannot transfer ticket to yourself' },
+            { status: 400 }
+          );
+        }
+
+        // Transfer ticket
+        const transferResult = await prisma.$transaction(async (tx) => {
+          // Cancel any active listings (shouldn't exist but just in case)
+          await tx.resaleListing.updateMany({
+            where: { ticketId: id, status: 'ACTIVE' },
+            data: { status: 'CANCELLED', cancelledAt: new Date() },
+          });
+
+          // Update ticket owner
+          const updatedTicket = await tx.ticket.update({
+            where: { id },
+            data: {
+              ownerId: recipient!.id,
+              isListed: false,
+            },
+          });
+
+          // Record transfer
+          await tx.ticketTransfer.create({
+            data: {
+              ticketId: id,
+              fromAddress: ticket.owner?.walletAddress || ticket.owner?.email || authResult.userId,
+              toAddress: recipient!.walletAddress || recipient!.email || recipient!.id,
+              transferType: 'GIFT',
+            },
+          });
+
+          return updatedTicket;
+        });
+
+        return NextResponse.json(serializeForJson({
+          success: true,
+          message: `Ticket transferred to ${validated.toEmail || validated.toAddress}`,
+          ticket: transferResult,
+        }));
       }
 
-      // Get or create recipient user
-      let recipient = await prisma.user.findUnique({
-        where: { walletAddress: validated.toAddress },
-      });
+      case 'list': {
+        if (!validated.priceUsd) {
+          return NextResponse.json(
+            { error: 'Price is required for listing' },
+            { status: 400 }
+          );
+        }
 
-      if (!recipient) {
-        recipient = await prisma.user.create({
-          data: { walletAddress: validated.toAddress },
+        if (!ticket.event.resaleEnabled) {
+          return NextResponse.json(
+            { error: 'Resale is not enabled for this event' },
+            { status: 400 }
+          );
+        }
+
+        if (ticket.isListed) {
+          return NextResponse.json(
+            { error: 'Ticket is already listed' },
+            { status: 400 }
+          );
+        }
+
+        // Check price cap
+        if (ticket.event.maxResaleMarkupBps) {
+          const maxPrice = ticket.tier.priceUsd * (1 + ticket.event.maxResaleMarkupBps / 10000);
+          if (validated.priceUsd > maxPrice) {
+            return NextResponse.json(
+              {
+                error: `Price exceeds maximum allowed ($${maxPrice.toFixed(2)})`,
+                maxPrice: Math.round(maxPrice * 100) / 100,
+                maxMarkupPercent: ticket.event.maxResaleMarkupBps / 100,
+              },
+              { status: 400 }
+            );
+          }
+        }
+
+        // Create listing
+        const listResult = await prisma.$transaction(async (tx) => {
+          const listing = await tx.resaleListing.create({
+            data: {
+              ticketId: id,
+              eventId: ticket.eventId,
+              sellerId: authResult.userId!,
+              priceUsd: validated.priceUsd!,
+              status: 'ACTIVE',
+              expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+            },
+          });
+
+          await tx.ticket.update({
+            where: { id },
+            data: { isListed: true },
+          });
+
+          return listing;
+        });
+
+        return NextResponse.json(serializeForJson({
+          success: true,
+          message: `Ticket listed for $${validated.priceUsd.toFixed(2)}`,
+          listing: listResult,
+        }));
+      }
+
+      case 'unlist': {
+        if (!ticket.isListed) {
+          return NextResponse.json(
+            { error: 'Ticket is not listed' },
+            { status: 400 }
+          );
+        }
+
+        // Cancel listing
+        await prisma.$transaction(async (tx) => {
+          await tx.resaleListing.updateMany({
+            where: { ticketId: id, status: 'ACTIVE' },
+            data: { status: 'CANCELLED', cancelledAt: new Date() },
+          });
+
+          await tx.ticket.update({
+            where: { id },
+            data: { isListed: false },
+          });
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Ticket listing cancelled',
         });
       }
 
-      // Transfer ticket
-      const updated = await prisma.$transaction(async (tx) => {
-        // Cancel any active listings
-        await tx.resaleListing.updateMany({
-          where: { ticketId: id, status: 'ACTIVE' },
-          data: { status: 'CANCELLED', cancelledAt: new Date() },
-        });
-
-        // Update ticket owner
-        const updatedTicket = await tx.ticket.update({
-          where: { id },
-          data: {
-            ownerId: recipient!.id,
-            isListed: false,
-          },
-        });
-
-        // Record transfer
-        await tx.ticketTransfer.create({
-          data: {
-            ticketId: id,
-            fromAddress: ticket.owner?.walletAddress || '',
-            toAddress: validated.toAddress!,
-            transferType: 'GIFT',
-          },
-        });
-
-        return updatedTicket;
-      });
-
-      return NextResponse.json({ success: true, ticket: updated });
+      default:
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
-
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     console.error('Error processing ticket action:', error);
 

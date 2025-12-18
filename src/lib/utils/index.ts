@@ -186,3 +186,29 @@ export function translateTerm(cryptoTerm: string): string {
   if (translated === null) return ''; // Don't show this term
   return translated || cryptoTerm;
 }
+
+// ============================================
+// JSON SERIALIZATION HELPERS
+// ============================================
+
+/**
+ * Serialize data for JSON response, converting BigInt to string
+ * Use this before NextResponse.json() when data may contain BigInt
+ */
+export function serializeForJson<T>(data: T): T {
+  return JSON.parse(
+    JSON.stringify(data, (_, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    )
+  );
+}
+
+/**
+ * Custom JSON replacer that handles BigInt and Date
+ */
+export function jsonReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
+}

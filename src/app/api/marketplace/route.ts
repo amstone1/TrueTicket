@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { serializeForJson } from '@/lib/utils';
 
 // GET /api/marketplace - Get resale listings
 export async function GET(request: NextRequest) {
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({
+    return NextResponse.json(serializeForJson({
       listings: listingsWithStats,
       pagination: {
         page,
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
+    }));
   } catch (error) {
     console.error('Error fetching marketplace:', error);
     return NextResponse.json(
@@ -182,7 +183,7 @@ export async function POST(request: NextRequest) {
       return newListing;
     });
 
-    return NextResponse.json({ success: true, listing }, { status: 201 });
+    return NextResponse.json(serializeForJson({ success: true, listing }), { status: 201 });
   } catch (error) {
     console.error('Error creating listing:', error);
 
