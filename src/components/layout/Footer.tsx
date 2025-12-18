@@ -49,12 +49,12 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">For Creators</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/creator/dashboard" className="text-sm hover:text-white">
+                <Link href="/dashboard" className="text-sm hover:text-white">
                   Creator Dashboard
                 </Link>
               </li>
               <li>
-                <Link href="/creator/events/create" className="text-sm hover:text-white">
+                <Link href="/dashboard/events/new" className="text-sm hover:text-white">
                   Create Event
                 </Link>
               </li>

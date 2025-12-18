@@ -1,56 +1,37 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { User } from '@/types';
 
-interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  authMethod: 'email' | 'wallet' | null;
-  isLoading: boolean;
+// This store handles UI preferences related to auth, not the actual auth state.
+// The actual auth state is managed by AuthContext.
+
+interface AuthPreferencesState {
+  // Preferences
+  preferredAuthMethod: 'email' | 'wallet' | null;
+  rememberMe: boolean;
 
   // Actions
-  setUser: (user: User | null) => void;
-  setAuthMethod: (method: 'email' | 'wallet' | null) => void;
-  setLoading: (loading: boolean) => void;
-  logout: () => void;
+  setPreferredAuthMethod: (method: 'email' | 'wallet' | null) => void;
+  setRememberMe: (remember: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useAuthPreferences = create<AuthPreferencesState>()(
   persist(
     (set) => ({
-      user: null,
-      isAuthenticated: false,
-      authMethod: null,
-      isLoading: true,
+      preferredAuthMethod: 'email',
+      rememberMe: false,
 
-      setUser: (user) =>
-        set({
-          user,
-          isAuthenticated: !!user,
-        }),
+      setPreferredAuthMethod: (method) =>
+        set({ preferredAuthMethod: method }),
 
-      setAuthMethod: (method) =>
-        set({
-          authMethod: method,
-        }),
-
-      setLoading: (loading) =>
-        set({
-          isLoading: loading,
-        }),
-
-      logout: () =>
-        set({
-          user: null,
-          isAuthenticated: false,
-          authMethod: null,
-        }),
+      setRememberMe: (remember) =>
+        set({ rememberMe: remember }),
     }),
     {
-      name: 'trueticket-auth',
-      partialize: (state) => ({
-        authMethod: state.authMethod,
-      }),
+      name: 'trueticket-auth-prefs',
     }
   )
 );
+
+// Legacy export for backwards compatibility during migration
+// TODO: Remove after migration complete
+export const useAuthStore = useAuthPreferences;

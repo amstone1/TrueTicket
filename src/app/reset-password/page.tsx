@@ -3,6 +3,9 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Eye, EyeOff, Lock, Ticket, CheckCircle, XCircle, Check, X } from 'lucide-react';
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -82,11 +85,9 @@ function ResetPasswordContent() {
 
       setSuccess(true);
 
-      // Redirect to login after 3 seconds
       setTimeout(() => {
         router.push('/login?message=Password reset successful. Please sign in.');
       }, 3000);
-
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
     } finally {
@@ -96,29 +97,31 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">❌</div>
-          <h1 className="text-2xl font-bold mb-2">Invalid Reset Link</h1>
-          <p className="text-gray-400 mb-6">This password reset link is invalid or has expired.</p>
-          <Link
-            href="/forgot-password"
-            className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-medium inline-block"
-          >
-            Request New Link
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <Card variant="bordered" className="max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <XCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Reset Link</h1>
+          <p className="text-gray-500 mb-6">
+            This password reset link is invalid or has expired.
+          </p>
+          <Link href="/forgot-password">
+            <Button className="w-full">Request New Link</Button>
           </Link>
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
+      <header className="border-b border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+            <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-indigo-600">
+              <Ticket className="w-8 h-8" />
               TrueTicket
             </Link>
           </div>
@@ -127,93 +130,116 @@ function ResetPasswordContent() {
 
       <main className="max-w-md mx-auto px-4 py-12">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Set New Password</h1>
-          <p className="text-gray-400">Choose a strong password for your account</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Set New Password</h1>
+          <p className="text-gray-500">Choose a strong password for your account</p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-6">
+        <Card variant="bordered" className="p-6">
           {success ? (
-            <div className="text-center">
-              <div className="text-6xl mb-4">✅</div>
-              <h2 className="text-xl font-bold mb-2">Password Reset!</h2>
-              <p className="text-gray-400 mb-4">
-                Your password has been successfully reset.
-                Redirecting to sign in...
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Password Reset!</h2>
+              <p className="text-gray-500 mb-4">
+                Your password has been successfully reset. Redirecting to sign in...
               </p>
-              <div className="animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent mx-auto"></div>
             </div>
           ) : (
             <>
               {error && (
-                <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
                   {error}
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* New Password */}
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">New Password</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Password
+                  </label>
                   <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Lock className="w-5 h-5" />
+                    </div>
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
                       required
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 pr-12 focus:outline-none focus:border-purple-500"
+                      className="block w-full rounded-lg border border-gray-300 bg-white pl-10 pr-10 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       placeholder="Create a strong password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showPassword ? '🙈' : '👁️'}
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                   {formData.password && passwordStrength.length > 0 && (
-                    <div className="mt-2 text-xs">
-                      <p className="text-gray-400 mb-1">Password needs:</p>
+                    <div className="mt-2 text-xs space-y-1">
+                      <p className="text-gray-500">Password requirements:</p>
                       {passwordStrength.map((issue, i) => (
-                        <span key={i} className="text-yellow-400 mr-2">• {issue}</span>
+                        <span key={i} className="inline-flex items-center text-amber-600 mr-3">
+                          <X className="w-3 h-3 mr-1" />
+                          {issue}
+                        </span>
                       ))}
                     </div>
                   )}
                   {formData.password && passwordStrength.length === 0 && (
-                    <p className="text-green-400 text-xs mt-1">Strong password</p>
+                    <p className="text-green-600 text-xs mt-1 flex items-center">
+                      <Check className="w-3 h-3 mr-1" />
+                      Strong password
+                    </p>
                   )}
                 </div>
 
+                {/* Confirm Password */}
                 <div>
-                  <label className="block text-sm text-gray-400 mb-1">Confirm New Password</label>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                    placeholder="Confirm your password"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      required
+                      className="block w-full rounded-lg border border-gray-300 bg-white pl-10 pr-10 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Confirm your password"
+                    />
+                  </div>
                   {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                    <p className="text-red-400 text-xs mt-1">Passwords do not match</p>
+                    <p className="text-red-600 text-xs mt-1 flex items-center">
+                      <X className="w-3 h-3 mr-1" />
+                      Passwords do not match
+                    </p>
                   )}
                   {formData.confirmPassword && formData.password === formData.confirmPassword && (
-                    <p className="text-green-400 text-xs mt-1">Passwords match</p>
+                    <p className="text-green-600 text-xs mt-1 flex items-center">
+                      <Check className="w-3 h-3 mr-1" />
+                      Passwords match
+                    </p>
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition-all"
-                >
-                  {loading ? 'Resetting...' : 'Reset Password'}
-                </button>
+                <Button type="submit" className="w-full" size="lg" isLoading={loading}>
+                  Reset Password
+                </Button>
               </form>
             </>
           )}
-        </div>
+        </Card>
       </main>
     </div>
   );
@@ -221,11 +247,13 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent"></div>
+        </div>
+      }
+    >
       <ResetPasswordContent />
     </Suspense>
   );

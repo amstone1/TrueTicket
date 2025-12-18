@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Mail, Ticket, ArrowLeft, CheckCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -29,7 +33,6 @@ export default function ForgotPasswordPage() {
       }
 
       setSubmitted(true);
-
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
     } finally {
@@ -38,16 +41,17 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
+      <header className="border-b border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+            <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-indigo-600">
+              <Ticket className="w-8 h-8" />
               TrueTicket
             </Link>
             <nav className="flex items-center gap-4">
-              <Link href="/login" className="text-gray-400 hover:text-white">
+              <Link href="/login" className="text-gray-600 hover:text-gray-900">
                 Sign In
               </Link>
             </nav>
@@ -57,64 +61,65 @@ export default function ForgotPasswordPage() {
 
       <main className="max-w-md mx-auto px-4 py-12">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Reset Password</h1>
-          <p className="text-gray-400">Enter your email to receive a reset link</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
+          <p className="text-gray-500">Enter your email to receive a reset link</p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-6">
+        <Card variant="bordered" className="p-6">
           {submitted ? (
-            <div className="text-center">
-              <div className="text-6xl mb-4">📧</div>
-              <h2 className="text-xl font-bold mb-2">Check Your Email</h2>
-              <p className="text-gray-400 mb-6">
-                If an account with that email exists, we've sent a password reset link.
-                Please check your inbox and spam folder.
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Check Your Email</h2>
+              <p className="text-gray-500 mb-6">
+                If an account with that email exists, we've sent a password reset link. Please check
+                your inbox and spam folder.
               </p>
-              <Link
-                href="/login"
-                className="inline-block bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-medium"
-              >
-                Back to Sign In
+              <Link href="/login">
+                <Button className="w-full">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Sign In
+                </Button>
               </Link>
             </div>
           ) : (
             <>
               {error && (
-                <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
                   {error}
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
-                    placeholder="you@example.com"
-                  />
-                </div>
+                <Input
+                  type="email"
+                  name="email"
+                  label="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="you@example.com"
+                  leftIcon={<Mail className="w-5 h-5" />}
+                />
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition-all"
-                >
-                  {loading ? 'Sending...' : 'Send Reset Link'}
-                </button>
+                <Button type="submit" className="w-full" size="lg" isLoading={loading}>
+                  Send Reset Link
+                </Button>
               </form>
 
               <div className="mt-6 text-center">
-                <Link href="/login" className="text-purple-400 hover:underline text-sm">
+                <Link
+                  href="/login"
+                  className="text-indigo-600 hover:underline text-sm inline-flex items-center"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
                   Back to Sign In
                 </Link>
               </div>
             </>
           )}
-        </div>
+        </Card>
       </main>
     </div>
   );

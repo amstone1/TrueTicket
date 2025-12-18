@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { randomBytes, createHash } from 'crypto';
+import { verifyAuth } from '@/lib/auth/verify';
 
 function generateCheckInCode(): string {
   return randomBytes(16).toString('hex').toUpperCase();
@@ -14,25 +15,14 @@ function hashCode(code: string): string {
 // GET /api/tickets - Get user's tickets
 export async function GET(request: NextRequest) {
   try {
+    // Verify authentication
+    const authResult = await verifyAuth(request);
+    if (!authResult.authenticated || !authResult.userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
-    const walletAddress = searchParams.get('wallet');
     const status = searchParams.get('status'); // upcoming, past, all
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        { error: 'Wallet address required' },
-        { status: 400 }
-      );
-    }
-
-    // Find user by wallet
-    const user = await prisma.user.findUnique({
-      where: { walletAddress },
-    });
-
-    if (!user) {
-      return NextResponse.json({ tickets: [] });
-    }
 
     const now = new Date();
     let dateFilter = {};
@@ -45,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const tickets = await prisma.ticket.findMany({
       where: {
-        ownerId: user.id,
+        ownerId: authResult.userId,
         ...dateFilter,
       },
       include: {
@@ -62,6 +52,8 @@ export async function GET(request: NextRequest) {
             state: true,
             coverImageUrl: true,
             thumbnailUrl: true,
+            resaleEnabled: true,
+            maxResaleMarkupBps: true,
           },
         },
         tier: {
@@ -78,7 +70,27 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ tickets });
+    // Transform tickets for response
+    const transformedTickets = tickets.map((ticket) => ({
+      ...ticket,
+      event: {
+        ...ticket.event,
+        startDate: ticket.event.startDate.toISOString(),
+        endDate: ticket.event.endDate?.toISOString(),
+        doorsOpen: ticket.event.doorsOpen?.toISOString(),
+      },
+      tier: {
+        ...ticket.tier,
+        perks: typeof ticket.tier.perks === 'string'
+          ? JSON.parse(ticket.tier.perks || '[]')
+          : ticket.tier.perks,
+      },
+      mintedAt: ticket.mintedAt?.toISOString(),
+      createdAt: ticket.createdAt.toISOString(),
+      updatedAt: ticket.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json({ tickets: transformedTickets });
   } catch (error) {
     console.error('Error fetching tickets:', error);
     return NextResponse.json(

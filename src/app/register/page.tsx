@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Eye, EyeOff, Mail, Lock, User, Ticket, Check, X } from 'lucide-react';
 
 interface FormErrors {
   email?: string;
@@ -54,12 +58,10 @@ export default function RegisterPage() {
       [name]: type === 'checkbox' ? checked : value,
     }));
 
-    // Clear error when user starts typing
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
 
-    // Validate password as user types
     if (name === 'password') {
       validatePassword(value);
     }
@@ -70,7 +72,6 @@ export default function RegisterPage() {
     setErrors({});
     setLoading(true);
 
-    // Client-side validation
     const newErrors: FormErrors = {};
 
     if (!formData.email) newErrors.email = 'Email is required';
@@ -100,7 +101,6 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         if (data.details) {
-          // Zod validation errors
           const fieldErrors: FormErrors = {};
           data.details.forEach((err: any) => {
             const field = err.path[0];
@@ -113,9 +113,7 @@ export default function RegisterPage() {
         return;
       }
 
-      // Success - redirect to dashboard or verification page
       router.push('/my-tickets?registered=true');
-
     } catch (error) {
       setErrors({ general: 'An unexpected error occurred. Please try again.' });
     } finally {
@@ -131,16 +129,17 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
+      <header className="border-b border-gray-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+            <Link href="/" className="flex items-center gap-2 text-2xl font-bold text-indigo-600">
+              <Ticket className="w-8 h-8" />
               TrueTicket
             </Link>
             <nav className="flex items-center gap-4">
-              <Link href="/login" className="text-gray-400 hover:text-white">
+              <Link href="/login" className="text-gray-600 hover:text-gray-900">
                 Sign In
               </Link>
             </nav>
@@ -150,13 +149,13 @@ export default function RegisterPage() {
 
       <main className="max-w-md mx-auto px-4 py-12">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Create Account</h1>
-          <p className="text-gray-400">Join TrueTicket for fair ticketing</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
+          <p className="text-gray-500">Join TrueTicket for fair ticketing</p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-6">
+        <Card variant="bordered" className="p-6">
           {errors.general && (
-            <div className="bg-red-900/50 border border-red-500 text-red-200 px-4 py-3 rounded-lg mb-6">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
               {errors.general}
             </div>
           )}
@@ -164,149 +163,148 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">First Name</label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-800 border ${
-                    errors.firstName ? 'border-red-500' : 'border-gray-700'
-                  } rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500`}
-                  placeholder="John"
-                />
-                {errors.firstName && (
-                  <p className="text-red-400 text-xs mt-1">{errors.firstName}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Last Name</label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  className={`w-full bg-gray-800 border ${
-                    errors.lastName ? 'border-red-500' : 'border-gray-700'
-                  } rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500`}
-                  placeholder="Doe"
-                />
-                {errors.lastName && (
-                  <p className="text-red-400 text-xs mt-1">{errors.lastName}</p>
-                )}
-              </div>
+              <Input
+                type="text"
+                name="firstName"
+                label="First Name"
+                value={formData.firstName}
+                onChange={handleChange}
+                error={errors.firstName}
+                placeholder="John"
+                leftIcon={<User className="w-5 h-5" />}
+              />
+              <Input
+                type="text"
+                name="lastName"
+                label="Last Name"
+                value={formData.lastName}
+                onChange={handleChange}
+                error={errors.lastName}
+                placeholder="Doe"
+              />
             </div>
 
             {/* Email */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full bg-gray-800 border ${
-                  errors.email ? 'border-red-500' : 'border-gray-700'
-                } rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500`}
-                placeholder="you@example.com"
-              />
-              {errors.email && (
-                <p className="text-red-400 text-xs mt-1">{errors.email}</p>
-              )}
-            </div>
+            <Input
+              type="email"
+              name="email"
+              label="Email"
+              value={formData.email}
+              onChange={handleChange}
+              error={errors.email}
+              placeholder="you@example.com"
+              leftIcon={<Mail className="w-5 h-5" />}
+            />
 
             {/* Password */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
               <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <Lock className="w-5 h-5" />
+                </div>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`w-full bg-gray-800 border ${
-                    errors.password ? 'border-red-500' : 'border-gray-700'
-                  } rounded-lg px-4 py-3 pr-12 focus:outline-none focus:border-purple-500`}
+                  className={`block w-full rounded-lg border ${
+                    errors.password ? 'border-red-300' : 'border-gray-300'
+                  } bg-white pl-10 pr-10 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${
+                    errors.password ? 'focus:ring-red-500' : 'focus:ring-indigo-500'
+                  }`}
                   placeholder="Create a strong password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? '🙈' : '👁️'}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              {errors.password && (
-                <p className="text-red-400 text-xs mt-1">{errors.password}</p>
-              )}
+              {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
               {formData.password && passwordStrength.length > 0 && (
-                <div className="mt-2 text-xs">
-                  <p className="text-gray-400 mb-1">Password needs:</p>
+                <div className="mt-2 text-xs space-y-1">
+                  <p className="text-gray-500">Password requirements:</p>
                   {passwordStrength.map((issue, i) => (
-                    <span key={i} className="text-yellow-400 mr-2">• {issue}</span>
+                    <span key={i} className="inline-flex items-center text-amber-600 mr-3">
+                      <X className="w-3 h-3 mr-1" />
+                      {issue}
+                    </span>
                   ))}
                 </div>
               )}
               {formData.password && passwordStrength.length === 0 && (
-                <p className="text-green-400 text-xs mt-1">Strong password</p>
+                <p className="text-green-600 text-xs mt-1 flex items-center">
+                  <Check className="w-3 h-3 mr-1" />
+                  Strong password
+                </p>
               )}
             </div>
 
             {/* Confirm Password */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Confirm Password</label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className={`w-full bg-gray-800 border ${
-                  errors.confirmPassword ? 'border-red-500' : 'border-gray-700'
-                } rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500`}
-                placeholder="Confirm your password"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className={`block w-full rounded-lg border ${
+                    errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                  } bg-white pl-10 pr-10 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${
+                    errors.confirmPassword ? 'focus:ring-red-500' : 'focus:ring-indigo-500'
+                  }`}
+                  placeholder="Confirm your password"
+                />
+              </div>
               {errors.confirmPassword && (
-                <p className="text-red-400 text-xs mt-1">{errors.confirmPassword}</p>
+                <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+              )}
+              {formData.confirmPassword && formData.password === formData.confirmPassword && (
+                <p className="text-green-600 text-xs mt-1 flex items-center">
+                  <Check className="w-3 h-3 mr-1" />
+                  Passwords match
+                </p>
               )}
             </div>
 
             {/* Account Type */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Account Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="USER">Fan / Ticket Buyer</option>
                 <option value="ORGANIZER">Event Organizer</option>
                 <option value="VENUE">Venue Manager</option>
                 <option value="ARTIST">Artist / Performer</option>
               </select>
-              <p className="text-gray-500 text-xs mt-1">
-                {roleDescriptions[formData.role]}
-              </p>
+              <p className="text-gray-500 text-xs mt-1">{roleDescriptions[formData.role]}</p>
             </div>
 
             {/* Optional: Wallet Address */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
-                Wallet Address <span className="text-gray-600">(Optional)</span>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Wallet Address <span className="text-gray-400">(Optional)</span>
               </label>
               <input
                 type="text"
                 name="walletAddress"
                 value={formData.walletAddress}
                 onChange={handleChange}
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 font-mono text-sm"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
                 placeholder="0x..."
               />
-              <p className="text-gray-500 text-xs mt-1">
-                Link a Web3 wallet for NFT ticket ownership
-              </p>
+              <p className="text-gray-500 text-xs mt-1">Link a Web3 wallet for NFT ticket ownership</p>
             </div>
 
             {/* Terms */}
@@ -314,46 +312,43 @@ export default function RegisterPage() {
               <input
                 type="checkbox"
                 name="acceptTerms"
+                id="acceptTerms"
                 checked={formData.acceptTerms}
                 onChange={handleChange}
-                className="mt-1 w-4 h-4 rounded border-gray-600 bg-gray-800 text-purple-500 focus:ring-purple-500"
+                className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <div>
-                <label className="text-sm text-gray-300">
+                <label htmlFor="acceptTerms" className="text-sm text-gray-600">
                   I agree to the{' '}
-                  <Link href="/terms" className="text-purple-400 hover:underline">
+                  <Link href="/terms" className="text-indigo-600 hover:underline">
                     Terms of Service
                   </Link>{' '}
                   and{' '}
-                  <Link href="/privacy" className="text-purple-400 hover:underline">
+                  <Link href="/privacy" className="text-indigo-600 hover:underline">
                     Privacy Policy
                   </Link>
                 </label>
                 {errors.acceptTerms && (
-                  <p className="text-red-400 text-xs mt-1">{errors.acceptTerms}</p>
+                  <p className="text-red-600 text-xs mt-1">{errors.acceptTerms}</p>
                 )}
               </div>
             </div>
 
             {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-bold transition-all"
-            >
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </button>
+            <Button type="submit" className="w-full" size="lg" isLoading={loading}>
+              Create Account
+            </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-700 text-center">
-            <p className="text-gray-400">
+          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+            <p className="text-gray-600">
               Already have an account?{' '}
-              <Link href="/login" className="text-purple-400 hover:underline font-medium">
+              <Link href="/login" className="text-indigo-600 hover:underline font-medium">
                 Sign In
               </Link>
             </p>
           </div>
-        </div>
+        </Card>
       </main>
     </div>
   );

@@ -1,74 +1,114 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { getInitials } from '@/lib/utils';
+import type { User, UserRole } from '@/types';
 
-interface User {
+// Unified User type that matches our types/index.ts
+interface AuthUser {
   id: string;
-  email: string;
-  displayName: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  role: string;
-  walletAddress: string | null;
-  avatarUrl: string | null;
+  email?: string;
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  role: UserRole;
+  walletAddress?: string;
+  avatarUrl?: string;
   emailVerified: boolean;
-}
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  error: string | null;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
-  register: (data: RegisterData) => Promise<boolean>;
-  logout: () => Promise<void>;
-  logoutAll: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  isArtist: boolean;
+  isVenue: boolean;
+  isAdmin: boolean;
 }
 
 interface RegisterData {
   email: string;
   password: string;
-  confirmPassword: string;
   firstName: string;
   lastName: string;
-  role: string;
-  walletAddress?: string;
-  phone?: string;
+  role: 'USER' | 'ORGANIZER';
   acceptTerms: boolean;
+}
+
+interface AuthContextType {
+  // State
+  user: AuthUser | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  error: string | null;
+
+  // Auth actions
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; error?: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  clearError: () => void;
+
+  // Display helpers
+  displayName: string;
+  initials: string;
+  avatarUrl?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function normalizeUser(apiUser: any): AuthUser {
+  return {
+    id: apiUser.id,
+    email: apiUser.email,
+    displayName: apiUser.displayName || (apiUser.firstName && apiUser.lastName
+      ? `${apiUser.firstName} ${apiUser.lastName}`.trim()
+      : apiUser.email?.split('@')[0] || 'User'),
+    firstName: apiUser.firstName,
+    lastName: apiUser.lastName,
+    role: apiUser.role || 'USER',
+    walletAddress: apiUser.walletAddress,
+    avatarUrl: apiUser.avatarUrl,
+    emailVerified: apiUser.emailVerified || false,
+    isArtist: apiUser.role === 'ARTIST' || apiUser.isArtist || false,
+    isVenue: apiUser.role === 'VENUE' || apiUser.isVenue || false,
+    isAdmin: apiUser.role === 'ADMIN' || apiUser.isAdmin || false,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch current user on mount
-  useEffect(() => {
-    refreshUser();
-  }, []);
-
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/me');
 
       if (res.ok) {
         const data = await res.json();
-        setUser(data.user);
+        if (data.user) {
+          setUser(normalizeUser(data.user));
+        } else {
+          setUser(null);
+        }
       } else {
         setUser(null);
       }
     } catch (err) {
       setUser(null);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-  const login = async (email: string, password: string, rememberMe = false): Promise<boolean> => {
+  // Check authentication on mount
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
+  const login = async (
+    email: string,
+    password: string,
+    rememberMe = false
+  ): Promise<{ success: boolean; error?: string }> => {
     setError(null);
 
     try {
@@ -81,42 +121,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Login failed');
-        return false;
+        const errorMessage = data.error || 'Login failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
       }
 
-      setUser(data.user);
-      return true;
+      setUser(normalizeUser(data.user));
+      return { success: true };
 
     } catch (err) {
-      setError('An unexpected error occurred');
-      return false;
+      const errorMessage = 'An unexpected error occurred';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
-  const register = async (data: RegisterData): Promise<boolean> => {
+  const register = async (data: RegisterData): Promise<{ success: boolean; error?: string }> => {
     setError(null);
 
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          confirmPassword: data.password, // API expects this
+        }),
       });
 
       const result = await res.json();
 
       if (!res.ok) {
-        setError(result.error || 'Registration failed');
-        return false;
+        const errorMessage = result.error || 'Registration failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
       }
 
-      setUser(result.user);
-      return true;
+      setUser(normalizeUser(result.user));
+      return { success: true };
 
     } catch (err) {
-      setError('An unexpected error occurred');
-      return false;
+      const errorMessage = 'An unexpected error occurred';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -144,17 +191,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearError = () => setError(null);
+
+  // Computed display values
+  const displayName = user?.displayName || 'Guest';
+  const initials = user?.displayName ? getInitials(user.displayName) : '?';
+
   return (
     <AuthContext.Provider
       value={{
         user,
-        loading,
+        isLoading,
+        isAuthenticated: !!user,
         error,
         login,
         register,
         logout,
         logoutAll,
         refreshUser,
+        clearError,
+        displayName,
+        initials,
+        avatarUrl: user?.avatarUrl,
       }}
     >
       {children}
@@ -162,6 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Main auth hook - use this throughout the app
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -172,32 +231,45 @@ export function useAuth() {
 
 // Helper hook to require authentication
 export function useRequireAuth(redirectTo = '/login') {
-  const { user, loading } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push(`${redirectTo}?returnTo=${encodeURIComponent(window.location.pathname)}`);
+    if (!isLoading && !user) {
+      const returnTo = typeof window !== 'undefined'
+        ? encodeURIComponent(window.location.pathname)
+        : '';
+      router.push(`${redirectTo}?returnTo=${returnTo}`);
     }
-  }, [user, loading, redirectTo, router]);
+  }, [user, isLoading, redirectTo, router]);
 
-  return { user, loading, isAuthenticated: !!user };
+  return { user, isLoading, isAuthenticated };
 }
 
 // Helper hook to require specific roles
-export function useRequireRole(allowedRoles: string[], redirectTo = '/') {
-  const { user, loading } = useAuth();
+export function useRequireRole(allowedRoles: UserRole[], redirectTo = '/') {
+  const { user, isLoading, isAuthenticated } = useAuth();
   const router = useRouter();
 
+  const hasAccess = user && allowedRoles.includes(user.role);
+
   useEffect(() => {
-    if (!loading) {
+    if (!isLoading) {
       if (!user) {
-        router.push(`/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
-      } else if (!allowedRoles.includes(user.role)) {
+        const returnTo = typeof window !== 'undefined'
+          ? encodeURIComponent(window.location.pathname)
+          : '';
+        router.push(`/login?returnTo=${returnTo}`);
+      } else if (!hasAccess) {
         router.push(redirectTo);
       }
     }
-  }, [user, loading, allowedRoles, redirectTo, router]);
+  }, [user, isLoading, hasAccess, redirectTo, router]);
 
-  return { user, loading, hasAccess: user && allowedRoles.includes(user.role) };
+  return { user, isLoading, isAuthenticated, hasAccess };
+}
+
+// Helper hook for creator pages (artists, venues, organizers)
+export function useRequireCreator(redirectTo = '/') {
+  return useRequireRole(['ARTIST', 'VENUE', 'ORGANIZER', 'ADMIN'], redirectTo);
 }

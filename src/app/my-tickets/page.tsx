@@ -1,62 +1,76 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
+import { Container } from '@/components/layout/Container';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge, TicketStatusBadge } from '@/components/ui/Badge';
+import { Tabs, Tab, TabPanel } from '@/components/ui/Tabs';
+import { NoTicketsEmpty } from '@/components/ui/EmptyState';
+import { Skeleton, TicketCardSkeleton } from '@/components/ui/Skeleton';
+import { Modal } from '@/components/ui/Modal';
+import { useAuth } from '@/hooks/useAuth';
+import { formatDate, formatTime, formatUSD, cn } from '@/lib/utils';
+import {
+  Ticket,
+  Calendar,
+  MapPin,
+  Clock,
+  QrCode,
+  Tag,
+  ExternalLink,
+  Share2,
+  Gift,
+  CheckCircle,
+  AlertCircle,
+} from 'lucide-react';
+import type { Ticket as TicketType } from '@/types';
 
-interface Ticket {
-  id: string;
-  tokenId: bigint | null;
-  status: string;
-  checkInCode: string;
-  originalPriceUsd: number;
-  isListed: boolean;
-  event: {
-    id: string;
-    name: string;
-    slug: string;
-    startDate: string;
-    doorsOpen: string | null;
-    venueName: string;
-    city: string;
-    state: string;
-    coverImageUrl: string;
-    thumbnailUrl: string;
-  };
+interface TicketWithDetails extends TicketType {
   tier: {
     id: string;
     name: string;
     priceUsd: number;
-    perks: string;
+    perks: string[];
   };
 }
 
-function MyTicketsContent() {
-  const searchParams = useSearchParams();
-  const [tickets, setTickets] = useState<Ticket[]>([]);
+export default function MyTicketsPage() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+  const [tickets, setTickets] = useState<TicketWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [walletAddress, setWalletAddress] = useState(searchParams.get('wallet') || '');
-  const [filter, setFilter] = useState<'upcoming' | 'past' | 'all'>('upcoming');
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [activeTab, setActiveTab] = useState('upcoming');
+  const [selectedTicket, setSelectedTicket] = useState<TicketWithDetails | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login?redirect=/my-tickets');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
-    if (walletAddress) {
+    if (isAuthenticated) {
       fetchTickets();
     }
-  }, [walletAddress, filter]);
+  }, [isAuthenticated, activeTab]);
 
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        wallet: walletAddress,
-        status: filter,
-      });
+      const params = new URLSearchParams({ status: activeTab });
       const res = await fetch(`/api/tickets?${params}`);
-      const data = await res.json();
-      setTickets(data.tickets || []);
+      if (res.ok) {
+        const data = await res.json();
+        setTickets(data.tickets || []);
+      }
     } catch (error) {
       console.error('Error fetching tickets:', error);
     } finally {
@@ -65,239 +79,181 @@ function MyTicketsContent() {
   };
 
   const loadQrCode = async (ticketId: string) => {
+    setQrLoading(true);
     try {
       const res = await fetch(`/api/tickets/${ticketId}/qr?format=dataurl`);
-      const data = await res.json();
-      setQrCode(data.qrCode);
+      if (res.ok) {
+        const data = await res.json();
+        setQrCode(data.qrCode);
+      }
     } catch (error) {
       console.error('Error loading QR code:', error);
+    } finally {
+      setQrLoading(false);
     }
   };
 
-  const openTicketModal = async (ticket: Ticket) => {
+  const openTicketModal = async (ticket: TicketWithDetails) => {
     setSelectedTicket(ticket);
     setQrCode(null);
     await loadQrCode(ticket.id);
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'VALID': return 'bg-green-600';
-      case 'USED': return 'bg-gray-600';
-      case 'PENDING_MINT': return 'bg-yellow-600';
-      default: return 'bg-red-600';
+  // Group tickets by event
+  const ticketsByEvent = tickets.reduce((acc, ticket) => {
+    const eventId = ticket.event.id;
+    if (!acc[eventId]) {
+      acc[eventId] = {
+        event: ticket.event,
+        tickets: [],
+      };
     }
-  };
+    acc[eventId].tickets.push(ticket);
+    return acc;
+  }, {} as Record<string, { event: TicketWithDetails['event']; tickets: TicketWithDetails[] }>);
 
-  const parsePerks = (perks: string) => {
-    try {
-      return JSON.parse(perks);
-    } catch {
-      return [];
-    }
-  };
+  if (authLoading) {
+    return (
+      <div className="bg-gray-50 min-h-screen pb-12">
+        <Container className="py-8">
+          <Skeleton className="h-8 w-48 mb-8" />
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <TicketCardSkeleton key={i} />
+            ))}
+          </div>
+        </Container>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-              TrueTicket
-            </Link>
-            <nav className="flex items-center gap-6">
-              <Link href="/events" className="text-gray-400 hover:text-white">Events</Link>
-              <Link href="/marketplace" className="text-gray-400 hover:text-white">Marketplace</Link>
-              <Link href="/my-tickets" className="text-white font-medium">My Tickets</Link>
-            </nav>
+    <div className="bg-gray-50 min-h-screen pb-12">
+      <Container className="py-8">
+        <PageHeader
+          title="My Tickets"
+          description="View and manage your event tickets"
+          breadcrumbs={[
+            { label: 'Home', href: '/' },
+            { label: 'My Tickets' },
+          ]}
+        />
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onChange={setActiveTab}>
+          <div className="flex gap-2 mb-6">
+            <Tab value="upcoming">Upcoming</Tab>
+            <Tab value="past">Past</Tab>
+            <Tab value="all">All Tickets</Tab>
           </div>
-        </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">My Tickets</h1>
-
-        {/* Wallet Input */}
-        <div className="bg-gray-800/50 rounded-xl p-4 mb-6">
-          <label className="block text-sm text-gray-400 mb-2">Wallet Address</label>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="0x..."
-              className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+          {/* Content */}
+          <TabPanel value="upcoming">
+            <TicketsList
+              ticketsByEvent={ticketsByEvent}
+              loading={loading}
+              onTicketClick={openTicketModal}
+              emptyMessage="You don't have any upcoming tickets"
             />
-            <button
-              onClick={fetchTickets}
-              className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded-lg font-medium"
-            >
-              Load
-            </button>
-          </div>
-          <p className="text-gray-500 text-xs mt-2">
-            Demo wallets: 0x90F79bf6EB2c4f870365E785982E1f101E93b906 (Alice) or 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65 (Bob)
-          </p>
-        </div>
+          </TabPanel>
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-6">
-          {(['upcoming', 'past', 'all'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg font-medium capitalize transition-colors ${
-                filter === f
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+          <TabPanel value="past">
+            <TicketsList
+              ticketsByEvent={ticketsByEvent}
+              loading={loading}
+              onTicketClick={openTicketModal}
+              emptyMessage="You don't have any past tickets"
+            />
+          </TabPanel>
 
-        {/* Tickets List */}
-        {loading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden">
-                <div className="h-32 bg-gradient-to-br from-purple-900/30 to-pink-900/20 relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-10 h-10 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-                  </div>
-                </div>
-                <div className="p-4 space-y-3">
-                  <div className="h-5 bg-gray-700/50 rounded w-3/4 animate-pulse" />
-                  <div className="h-4 bg-gray-700/50 rounded w-1/2 animate-pulse" />
-                  <div className="flex justify-between">
-                    <div className="h-4 bg-gray-700/50 rounded w-20 animate-pulse" />
-                    <div className="h-4 bg-gray-700/50 rounded w-24 animate-pulse" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : !walletAddress ? (
-          <div className="text-center py-16 bg-gray-800/30 rounded-xl">
-            <div className="text-6xl mb-4">🎫</div>
-            <h3 className="text-xl font-semibold mb-2">Enter your wallet address</h3>
-            <p className="text-gray-400">View tickets owned by your wallet</p>
-          </div>
-        ) : tickets.length === 0 ? (
-          <div className="text-center py-16 bg-gray-800/30 rounded-xl">
-            <div className="text-6xl mb-4">🎫</div>
-            <h3 className="text-xl font-semibold mb-2">No tickets found</h3>
-            <p className="text-gray-400 mb-4">This wallet doesn't own any tickets yet</p>
-            <Link href="/events" className="text-purple-400 hover:underline">
-              Browse events →
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {tickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden hover:border-purple-500 transition-all cursor-pointer"
-                onClick={() => openTicketModal(ticket)}
-              >
-                <div className="relative h-32 bg-gray-700">
-                  {ticket.event.thumbnailUrl ? (
-                    <Image
-                      src={ticket.event.thumbnailUrl}
-                      alt={ticket.event.name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-4xl">🎫</div>
-                  )}
-                  <div className="absolute top-2 right-2 flex gap-2">
-                    <span className={`${getStatusColor(ticket.status)} px-2 py-0.5 rounded text-xs font-semibold`}>
-                      {ticket.status}
-                    </span>
-                    {ticket.isListed && (
-                      <span className="bg-yellow-600 px-2 py-0.5 rounded text-xs font-semibold">
-                        Listed
-                      </span>
-                    )}
-                  </div>
-                </div>
+          <TabPanel value="all">
+            <TicketsList
+              ticketsByEvent={ticketsByEvent}
+              loading={loading}
+              onTicketClick={openTicketModal}
+              emptyMessage="You don't have any tickets yet"
+            />
+          </TabPanel>
+        </Tabs>
+      </Container>
 
-                <div className="p-4">
-                  <h3 className="font-bold mb-1 line-clamp-1">{ticket.event.name}</h3>
-                  <p className="text-purple-400 text-sm mb-2">{formatDate(ticket.event.startDate)}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-400 text-sm">{ticket.tier.name}</span>
-                    <span className="text-gray-400 text-sm">{ticket.event.venueName}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* Ticket Modal */}
-      {selectedTicket && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTicket(null)}>
-          <div className="bg-gray-900 rounded-2xl max-w-md w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      {/* Ticket Detail Modal */}
+      <Modal
+        isOpen={!!selectedTicket}
+        onClose={() => setSelectedTicket(null)}
+        title=""
+        size="md"
+      >
+        {selectedTicket && (
+          <div className="-m-6">
             {/* Ticket Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-center">
-              <h2 className="text-2xl font-bold mb-1">{selectedTicket.event.name}</h2>
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+              <h2 className="text-xl font-bold mb-1">{selectedTicket.event.name}</h2>
               <p className="opacity-80">{selectedTicket.tier.name}</p>
             </div>
 
             {/* QR Code */}
-            <div className="p-6 bg-white flex items-center justify-center">
-              {qrCode ? (
-                <img src={qrCode} alt="Ticket QR Code" className="w-64 h-64" />
+            <div className="p-6 bg-white flex flex-col items-center justify-center border-b border-gray-200">
+              {qrLoading ? (
+                <div className="w-48 h-48 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent" />
+                </div>
+              ) : qrCode ? (
+                <img src={qrCode} alt="Ticket QR Code" className="w-48 h-48" />
               ) : (
-                <div className="w-64 h-64 flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
+                <div className="w-48 h-48 flex items-center justify-center bg-gray-100 rounded-lg">
+                  <QrCode className="w-16 h-16 text-gray-300" />
                 </div>
               )}
+              <p className="text-xs text-gray-500 mt-3">Show this at the venue for entry</p>
             </div>
 
             {/* Ticket Details */}
             <div className="p-6 space-y-4">
               <div className="flex justify-between">
-                <span className="text-gray-400">Date</span>
-                <span className="font-medium">{formatDate(selectedTicket.event.startDate)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Venue</span>
-                <span className="font-medium">{selectedTicket.event.venueName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Location</span>
-                <span className="font-medium">{selectedTicket.event.city}, {selectedTicket.event.state}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Status</span>
-                <span className={`font-medium ${selectedTicket.status === 'VALID' ? 'text-green-400' : 'text-gray-400'}`}>
-                  {selectedTicket.status}
+                <span className="text-gray-500">Date</span>
+                <span className="font-medium text-gray-900">
+                  {formatDate(selectedTicket.event.startDate)}
                 </span>
               </div>
 
-              {parsePerks(selectedTicket.tier.perks).length > 0 && (
-                <div className="pt-4 border-t border-gray-700">
-                  <p className="text-gray-400 text-sm mb-2">Perks</p>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Time</span>
+                <span className="font-medium text-gray-900">
+                  {formatTime(selectedTicket.event.startDate)}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Venue</span>
+                <span className="font-medium text-gray-900">
+                  {selectedTicket.event.venueName || 'TBA'}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Location</span>
+                <span className="font-medium text-gray-900">
+                  {[selectedTicket.event.city, selectedTicket.event.state]
+                    .filter(Boolean)
+                    .join(', ') || 'TBA'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">Status</span>
+                <TicketStatusBadge status={selectedTicket.status} />
+              </div>
+
+              {selectedTicket.tier.perks && selectedTicket.tier.perks.length > 0 && (
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-gray-500 text-sm mb-2">Perks</p>
                   <div className="flex flex-wrap gap-2">
-                    {parsePerks(selectedTicket.tier.perks).map((perk: string, i: number) => (
-                      <span key={i} className="text-sm bg-gray-800 px-3 py-1 rounded-full">
+                    {selectedTicket.tier.perks.map((perk, i) => (
+                      <span
+                        key={i}
+                        className="text-sm bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full"
+                      >
                         {perk}
                       </span>
                     ))}
@@ -305,61 +261,136 @@ function MyTicketsContent() {
                 </div>
               )}
 
+              {/* Actions */}
               <div className="pt-4 flex gap-3">
-                {selectedTicket.status === 'VALID' && !selectedTicket.isListed && (
-                  <Link
-                    href={`/marketplace?list=${selectedTicket.id}`}
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 py-3 rounded-lg font-medium text-center"
-                  >
-                    List for Resale
-                  </Link>
-                )}
-                <button
+                {selectedTicket.status === 'VALID' &&
+                  !selectedTicket.isListed &&
+                  selectedTicket.event.resaleEnabled && (
+                    <Link href={`/marketplace/sell?ticketId=${selectedTicket.id}`} className="flex-1">
+                      <Button variant="primary" className="w-full">
+                        <Tag className="w-4 h-4 mr-2" />
+                        List for Resale
+                      </Button>
+                    </Link>
+                  )}
+                <Button
+                  variant="outline"
+                  className="flex-1"
                   onClick={() => setSelectedTicket(null)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 py-3 rounded-lg font-medium"
                 >
                   Close
-                </button>
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }
 
-export default function MyTicketsPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-950 text-white">
-        {/* Header skeleton */}
-        <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur sticky top-0 z-10">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-                TrueTicket
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="h-4 w-16 bg-gray-700 rounded animate-pulse" />
-                <div className="h-4 w-20 bg-gray-700 rounded animate-pulse" />
-                <div className="h-4 w-20 bg-gray-700 rounded animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </header>
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          <div className="h-9 w-40 bg-gray-700 rounded mb-6 animate-pulse" />
-          <div className="flex items-center justify-center py-16">
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-              <p className="text-gray-400 text-sm">Loading your tickets...</p>
-            </div>
-          </div>
-        </main>
+interface TicketsListProps {
+  ticketsByEvent: Record<string, { event: TicketWithDetails['event']; tickets: TicketWithDetails[] }>;
+  loading: boolean;
+  onTicketClick: (ticket: TicketWithDetails) => void;
+  emptyMessage: string;
+}
+
+function TicketsList({ ticketsByEvent, loading, onTicketClick, emptyMessage }: TicketsListProps) {
+  if (loading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <TicketCardSkeleton key={i} />
+        ))}
       </div>
-    }>
-      <MyTicketsContent />
-    </Suspense>
+    );
+  }
+
+  const events = Object.values(ticketsByEvent);
+
+  if (events.length === 0) {
+    return <NoTicketsEmpty />;
+  }
+
+  return (
+    <div className="space-y-8">
+      {events.map(({ event, tickets }) => (
+        <div key={event.id}>
+          {/* Event Header */}
+          <div className="flex items-center gap-4 mb-4">
+            {event.coverImageUrl ? (
+              <img
+                src={event.coverImageUrl}
+                alt={event.name}
+                className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex-shrink-0" />
+            )}
+            <div>
+              <Link
+                href={`/events/${event.slug}`}
+                className="font-semibold text-gray-900 hover:text-indigo-600"
+              >
+                {event.name}
+              </Link>
+              <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {formatDate(event.startDate)}
+                </span>
+                {event.venueName && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
+                    {event.venueName}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tickets Grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {tickets.map((ticket) => (
+              <Card
+                key={ticket.id}
+                variant="bordered"
+                className="cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all"
+                onClick={() => onTicketClick(ticket)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <Ticket className="w-6 h-6 text-indigo-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900">{ticket.tier.name}</p>
+                    <p className="text-sm text-gray-500">{formatUSD(ticket.originalPriceUsd)}</p>
+                  </div>
+                  <TicketStatusBadge status={ticket.status} size="sm" />
+                </div>
+
+                {ticket.isListed && (
+                  <div className="mt-3 flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                    <Tag className="w-4 h-4" />
+                    Listed for resale
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-between text-sm">
+                  <button className="text-indigo-600 font-medium flex items-center gap-1 hover:underline">
+                    <QrCode className="w-4 h-4" />
+                    View QR
+                  </button>
+                  <span className="text-gray-400">
+                    #{ticket.id.slice(0, 8).toUpperCase()}
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
