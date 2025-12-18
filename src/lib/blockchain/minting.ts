@@ -146,7 +146,7 @@ export async function mintTicketsForPurchase(purchaseId: string): Promise<MintRe
     where: { id: purchaseId },
     include: {
       event: true,
-      buyer: true,
+      user: true,
       tickets: {
         include: { tier: true },
       },
@@ -173,7 +173,7 @@ export async function mintTicketsForPurchase(purchaseId: string): Promise<MintRe
 
   // Determine recipient address
   // If user has wallet, use it. Otherwise, mint to platform wallet (custodial)
-  const recipientAddress = purchase.buyer.walletAddress ||
+  const recipientAddress = purchase.user?.walletAddress ||
     process.env.PLATFORM_WALLET_ADDRESS ||
     ethers.ZeroAddress;
 
@@ -226,7 +226,7 @@ export async function mintTicketsForPurchase(purchaseId: string): Promise<MintRe
           ticketId: ticket.id,
           fromAddress: ethers.ZeroAddress,
           toAddress: recipientAddress,
-          toUserId: purchase.buyerId,
+          toUserId: purchase.userId,
           type: 'MINT',
           txHash: mintResult.txHash,
         },
