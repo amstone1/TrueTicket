@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       const resaleRoyalties = 0; // Placeholder
 
       const ticketsSold = event.tickets.filter(
-        (t) => t.status !== 'CANCELLED'
+        (t) => t.status !== 'REVOKED' && t.status !== 'EXPIRED'
       ).length;
 
       return {
