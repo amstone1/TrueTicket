@@ -218,8 +218,8 @@ export async function POST(
           await tx.ticketTransfer.create({
             data: {
               ticketId: id,
-              fromAddress: ticket.owner?.walletAddress || ticket.owner?.email || authResult.userId,
-              toAddress: recipient!.walletAddress || recipient!.email || recipient!.id,
+              fromAddress: ticket.owner?.walletAddress || ticket.owner?.email || authResult.userId || 'unknown',
+              toAddress: recipient!.walletAddress || recipient!.email || recipient!.id || 'unknown',
               transferType: 'GIFT',
             },
           });
