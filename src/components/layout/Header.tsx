@@ -84,15 +84,18 @@ export function Header() {
 
             {/* Auth */}
             {isLoading ? (
-              <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-indigo-200 to-purple-200 animate-pulse" />
+                <div className="hidden sm:block w-20 h-4 bg-gray-200 rounded animate-pulse" />
+              </div>
             ) : isAuthenticated ? (
               <div className="flex items-center space-x-3">
                 <Link
                   href="/profile"
-                  className="flex items-center space-x-2 hover:opacity-80"
+                  className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <span className="text-indigo-600 font-medium text-sm">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <span className="text-white font-medium text-sm">
                       {initials}
                     </span>
                   </div>
@@ -105,7 +108,17 @@ export function Header() {
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => login('email')}>Sign In</Button>
+              <div className="flex items-center space-x-3">
+                <Link
+                  href="/login"
+                  className="text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link href="/register">
+                  <Button>Sign Up</Button>
+                </Link>
+              </div>
             )}
           </div>
         </div>

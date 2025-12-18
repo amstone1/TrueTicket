@@ -2,16 +2,21 @@
 // USER TYPES
 // ============================================
 
+export type UserRole = 'USER' | 'ORGANIZER' | 'VENUE' | 'ARTIST' | 'ADMIN';
+
 export interface User {
   id: string;
   email?: string;
   displayName?: string;
+  firstName?: string;
+  lastName?: string;
   avatarUrl?: string;
-  walletAddress: string;
+  walletAddress?: string;
   isVerified: boolean;
   isArtist: boolean;
   isVenue: boolean;
   isAdmin: boolean;
+  role?: UserRole;
 }
 
 // ============================================

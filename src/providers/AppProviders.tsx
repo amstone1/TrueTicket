@@ -2,9 +2,12 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PrivyProvider } from '@privy-io/react-auth';
-import { useState, type ReactNode } from 'react';
+import { useState, Suspense, type ReactNode } from 'react';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { LoadingBar } from '@/components/ui/LoadingBar';
 
-const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
+const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+const isPrivyConfigured = privyAppId && privyAppId !== 'your_privy_app_id' && privyAppId.startsWith('cl');
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -22,6 +25,20 @@ export function AppProviders({ children }: AppProvidersProps) {
         },
       })
   );
+
+  // If Privy is not configured, render without it (development mode)
+  if (!isPrivyConfigured) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Suspense fallback={null}>
+            <LoadingBar />
+          </Suspense>
+          {children}
+        </AuthProvider>
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <PrivyProvider
@@ -56,7 +73,12 @@ export function AppProviders({ children }: AppProvidersProps) {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        {children}
+        <AuthProvider>
+          <Suspense fallback={null}>
+            <LoadingBar />
+          </Suspense>
+          {children}
+        </AuthProvider>
       </QueryClientProvider>
     </PrivyProvider>
   );

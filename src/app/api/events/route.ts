@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (filters.city) {
-      where.city = { contains: filters.city, mode: 'insensitive' };
+      where.city = { contains: filters.city };
     }
 
     if (filters.state) {
-      where.state = { contains: filters.state, mode: 'insensitive' };
+      where.state = { contains: filters.state };
     }
 
     if (filters.startDateFrom || filters.startDateTo) {
@@ -54,9 +54,9 @@ export async function GET(request: NextRequest) {
 
     if (filters.search) {
       where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { description: { contains: filters.search, mode: 'insensitive' } },
-        { venueName: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: filters.search } },
+        { description: { contains: filters.search } },
+        { venueName: { contains: filters.search } },
       ];
     }
 
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
         description: validated.description,
         shortDescription: validated.shortDescription,
         category: validated.category,
-        tags: validated.tags || [],
+        tags: JSON.stringify(validated.tags || []),
         startDate: new Date(validated.startDate),
         endDate: validated.endDate ? new Date(validated.endDate) : null,
         doorsOpen: validated.doorsOpen ? new Date(validated.doorsOpen) : null,
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
             maxPerWallet: tier.maxPerWallet,
             saleStartDate: tier.saleStartDate ? new Date(tier.saleStartDate) : null,
             saleEndDate: tier.saleEndDate ? new Date(tier.saleEndDate) : null,
-            perks: tier.perks || [],
+            perks: JSON.stringify(tier.perks || []),
           })),
         },
       },

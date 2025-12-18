@@ -85,6 +85,7 @@ contract TrueTicketNFT is
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(MINTER_ROLE, admin);
         _grantRole(OPERATOR_ROLE, admin);
+        _grantRole(OPERATOR_ROLE, msg.sender); // Grant to factory for setTier calls
 
         _eventId = eventId_;
         factory = msg.sender;

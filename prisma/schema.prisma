@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,13 +15,30 @@ model User {
   id                String    @id @default(cuid())
   email             String?   @unique
   phone             String?   @unique
-  walletAddress     String    @unique
+  walletAddress     String?   @unique
   privyUserId       String?   @unique
 
+  // Authentication
+  passwordHash      String?
+  role              UserRole  @default(USER)
+
+  // Email verification
+  emailVerified     Boolean   @default(false)
+  emailVerifyToken  String?
+  emailVerifyExpiry DateTime?
+
+  // Password reset
+  resetToken        String?
+  resetTokenExpiry  DateTime?
+
+  // Profile
   displayName       String?
+  firstName         String?
+  lastName          String?
   avatarUrl         String?
   bio               String?
 
+  // Legacy flags (kept for compatibility)
   isVerified        Boolean   @default(false)
   isArtist          Boolean   @default(false)
   isVenue           Boolean   @default(false)
@@ -30,6 +47,9 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   lastLoginAt       DateTime?
+
+  // Sessions for refresh token tracking
+  sessions          Session[]
 
   ownedTickets      Ticket[]  @relation("TicketOwner")
   createdEvents     Event[]   @relation("EventOrganizer")
@@ -41,6 +61,32 @@ model User {
 
   @@index([walletAddress])
   @@index([email])
+}
+
+enum UserRole {
+  USER
+  ORGANIZER
+  VENUE
+  ARTIST
+  ADMIN
+}
+
+model Session {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshToken  String    @unique
+  userAgent     String?
+  ipAddress     String?
+  isValid       Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime
+  lastUsedAt    DateTime  @default(now())
+
+  @@index([userId])
+  @@index([refreshToken])
 }
 
 // ============================================
@@ -60,7 +106,7 @@ model Event {
   shortDescription    String?
 
   category            EventCategory
-  tags                String[]
+  tags                String    @default("[]") // JSON array
 
   startDate           DateTime
   endDate             DateTime?
@@ -144,7 +190,7 @@ model TicketTier {
   saleStartDate     DateTime?
   saleEndDate       DateTime?
 
-  perks             String[]
+  perks             String    @default("[]") // JSON array
 
   ticketImageUrl    String?
   ticketImageIpfs   String?
@@ -343,7 +389,7 @@ model Purchase {
   status              PurchaseStatus @default(PENDING)
 
   ticketQuantity      Int
-  ticketIds           String[]
+  ticketIds           String    @default("[]") // JSON array
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -398,7 +444,7 @@ model Payout {
   status            PayoutStatus @default(PENDING)
 
   sourceType        String
-  sourceIds         String[]
+  sourceIds         String    @default("[]") // JSON array
 
   createdAt         DateTime  @default(now())
   processedAt       DateTime?
