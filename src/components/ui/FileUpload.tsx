@@ -180,8 +180,9 @@ export function FileUpload({
       {/* File list for non-image files */}
       {!preview && hasFiles && (
         <div className="mt-3 space-y-2">
-          {(multiple && Array.isArray(value) ? value : value ? [value] : []).map((file: File, index: number) => (
-            file && (
+          {(() => {
+            const files: File[] = multiple && Array.isArray(value) ? value.filter((f): f is File => f instanceof File) : value && !Array.isArray(value) ? [value] : [];
+            return files.map((file, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
@@ -198,8 +199,8 @@ export function FileUpload({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            )
-          ))}
+            ));
+          })()}
         </div>
       )}
 
