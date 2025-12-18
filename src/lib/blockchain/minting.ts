@@ -62,7 +62,7 @@ export async function createEventOnChain(dbEventId: string): Promise<EventOnChai
   const tierData = event.ticketTiers.map((tier, index) => ({
     name: tier.name,
     price: ethers.parseEther((tier.priceUsd / 1000).toString()), // Convert USD to ETH equivalent (simplified)
-    maxSupply: tier.quantity,
+    maxSupply: tier.totalQuantity,
     perks: tier.perks ? JSON.parse(tier.perks) : [],
   }));
 
