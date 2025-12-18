@@ -6,7 +6,6 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const walletAddress = searchParams.get('wallet');
-    const role = searchParams.get('role'); // 'artist', 'venue', 'organizer', or 'all'
 
     if (!walletAddress) {
       return NextResponse.json(
@@ -58,8 +57,7 @@ export async function GET(request: NextRequest) {
       }, 0);
 
       // Resale royalties - TODO: implement when resale tracking is added
-      // For now, estimate from ResaleListing completions
-      const resaleRoyalties = 0; // Placeholder
+      const resaleRoyalties = 0;
 
       const ticketsSold = event.tickets.filter(
         (t) => t.status !== 'REVOKED' && t.status !== 'EXPIRED'
@@ -99,30 +97,23 @@ export async function GET(request: NextRequest) {
       .filter((p) => p.status === 'PENDING')
       .reduce((sum, p) => sum + p.amountUsd, 0);
 
-    // Get recent transactions (sales and royalties)
+    // Get recent purchases for this organizer's events
     const recentPurchases = await prisma.purchase.findMany({
       where: {
-        ticket: {
-          event: {
-            organizerId: user.id,
-          },
+        event: {
+          organizerId: user.id,
         },
         status: 'COMPLETED',
       },
       include: {
-        ticket: {
-          include: {
-            tier: true,
-            event: {
-              select: {
-                id: true,
-                name: true,
-                resaleRoyaltyBps: true,
-              },
-            },
+        event: {
+          select: {
+            id: true,
+            name: true,
+            resaleRoyaltyBps: true,
           },
         },
-        buyer: {
+        user: {
           select: {
             displayName: true,
             walletAddress: true,
@@ -135,14 +126,10 @@ export async function GET(request: NextRequest) {
 
     const recentTransactions = recentPurchases.map((p) => ({
       id: p.id,
-      type: p.purchaseType === 'RESALE' ? 'ROYALTY' : 'PRIMARY_SALE',
-      eventName: p.ticket.event.name,
-      tierName: p.ticket.tier.name,
-      amount:
-        p.purchaseType === 'RESALE'
-          ? (p.totalUsd || 0) * (p.ticket.event.resaleRoyaltyBps / 10000)
-          : p.ticket.tier.priceUsd,
-      buyerName: p.buyer?.displayName || 'Anonymous',
+      type: 'PRIMARY_SALE',
+      eventName: p.event.name,
+      amount: p.subtotalUsd,
+      buyerName: p.user?.displayName || 'Anonymous',
       date: p.createdAt,
     }));
 
@@ -208,11 +195,13 @@ export async function POST(request: NextRequest) {
     // Create payout request
     const payout = await prisma.payout.create({
       data: {
-        recipientId: user.id,
+        userId: user.id,
         amountUsd: amount,
         payoutMethod: method || 'CRYPTO_USDC',
         status: 'PENDING',
-        payoutAddress: walletAddress,
+        cryptoAddress: walletAddress,
+        sourceType: 'EVENT_SALES',
+        sourceIds: '[]',
       },
     });
 
