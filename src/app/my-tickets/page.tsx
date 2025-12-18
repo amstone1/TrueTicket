@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import type { Ticket as TicketType } from '@/types';
 
-interface TicketWithDetails extends TicketType {
+interface TicketWithDetails extends Omit<TicketType, 'tier'> {
   tier: {
     id: string;
     name: string;
