@@ -68,7 +68,7 @@ export async function createEventOnChain(dbEventId: string): Promise<EventOnChai
 
   // Set resale cap type based on event settings
   let resaleCapType = 0; // NO_CAP
-  let resaleCapValue = 0n;
+  let resaleCapValue = BigInt(0);
 
   if (event.maxResaleMarkupBps) {
     if (event.maxResaleMarkupBps === 0) {
