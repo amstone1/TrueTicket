@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         color: 'red',
         ticket: {
           tier: ticket.tier.name,
-          owner: ticket.owner.displayName || ticket.owner.walletAddress.slice(0, 10) + '...',
+          owner: ticket.owner.displayName || (ticket.owner.walletAddress ? ticket.owner.walletAddress.slice(0, 10) + '...' : 'Unknown'),
         },
       });
     }
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
         id: ticket.id,
         tier: ticket.tier.name,
         perks: ticket.tier.perks,
-        owner: ticket.owner.displayName || ticket.owner.walletAddress.slice(0, 10) + '...',
+        owner: ticket.owner.displayName || (ticket.owner.walletAddress ? ticket.owner.walletAddress.slice(0, 10) + '...' : 'Unknown'),
         event: {
           name: ticket.event.name,
           venue: ticket.event.venueName,
