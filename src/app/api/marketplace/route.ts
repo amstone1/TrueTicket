@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify ownership
-    if (ticket.owner.walletAddress.toLowerCase() !== validated.walletAddress.toLowerCase()) {
+    if (!ticket.owner.walletAddress || ticket.owner.walletAddress.toLowerCase() !== validated.walletAddress.toLowerCase()) {
       return NextResponse.json(
         { error: 'You do not own this ticket' },
         { status: 403 }
