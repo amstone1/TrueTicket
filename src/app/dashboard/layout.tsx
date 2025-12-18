@@ -17,14 +17,14 @@ import {
 } from 'lucide-react';
 
 const sidebarLinks: SidebarLink[] = [
-  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Events', href: '/dashboard/events', icon: Calendar },
-  { label: 'Create Event', href: '/dashboard/events/new', icon: PlusCircle },
-  { label: 'Tickets', href: '/dashboard/tickets', icon: Ticket },
-  { label: 'Royalties', href: '/dashboard/royalties', icon: DollarSign },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { label: 'Team', href: '/dashboard/team', icon: Users },
-  { label: 'Settings', href: '/dashboard/settings', icon: Settings },
+  { label: 'Overview', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { label: 'Events', href: '/dashboard/events', icon: <Calendar className="w-5 h-5" /> },
+  { label: 'Create Event', href: '/dashboard/events/new', icon: <PlusCircle className="w-5 h-5" /> },
+  { label: 'Tickets', href: '/dashboard/tickets', icon: <Ticket className="w-5 h-5" /> },
+  { label: 'Royalties', href: '/dashboard/royalties', icon: <DollarSign className="w-5 h-5" /> },
+  { label: 'Analytics', href: '/dashboard/analytics', icon: <BarChart3 className="w-5 h-5" /> },
+  { label: 'Team', href: '/dashboard/team', icon: <Users className="w-5 h-5" /> },
+  { label: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 export default function DashboardLayout({
