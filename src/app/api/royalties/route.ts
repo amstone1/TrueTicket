@@ -41,38 +41,30 @@ export async function GET(request: NextRequest) {
         ticketTiers: true,
         tickets: {
           include: {
-            purchases: true,
+            tier: true,
           },
+        },
+        purchases: {
+          where: { status: 'COMPLETED' },
         },
       },
     });
 
     // Calculate earnings per event
     const eventEarnings = events.map((event) => {
-      // Primary sales
-      const primarySales = event.tickets.reduce((sum, ticket) => {
-        const purchase = ticket.purchases[0];
-        if (purchase && purchase.status === 'COMPLETED') {
-          const tier = event.ticketTiers.find((t) => t.id === ticket.tierId);
-          return sum + (tier?.priceUsd || 0);
-        }
-        return sum;
+      // Primary sales - count completed purchases
+      const primarySales = event.purchases.reduce((sum, purchase) => {
+        return sum + purchase.subtotalUsd;
       }, 0);
 
-      // Resale royalties (from resale purchases)
-      const resaleRoyalties = event.tickets.reduce((sum, ticket) => {
-        // Check if ticket was resold
-        const resalePurchases = ticket.purchases.filter(
-          (p) => p.purchaseType === 'RESALE' && p.status === 'COMPLETED'
-        );
-        return (
-          sum +
-          resalePurchases.reduce((rSum, p) => {
-            // Royalty is typically 10% of resale price, split according to event rules
-            const royaltyAmount = (p.totalUsd || 0) * (event.resaleRoyaltyBps / 10000);
-            return rSum + royaltyAmount;
-          }, 0)
-        );
+      // Resale royalties - calculate from resale purchases
+      const resalePurchases = event.purchases.filter(
+        (p) => p.purchaseType === 'RESALE'
+      );
+      const resaleRoyalties = resalePurchases.reduce((sum, p) => {
+        // Royalty is typically 10% of resale price, split according to event rules
+        const royaltyAmount = (p.totalUsd || 0) * (event.resaleRoyaltyBps / 10000);
+        return sum + royaltyAmount;
       }, 0);
 
       const ticketsSold = event.tickets.filter(
