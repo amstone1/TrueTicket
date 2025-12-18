@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { stripe, calculateFees, createLineItems, createFeeLineItem } from '@/lib/stripe';
+import { getStripe, calculateFees, createLineItems, createFeeLineItem } from '@/lib/stripe';
 import { verifyAuth } from '@/lib/auth/verify';
 import { z } from 'zod';
 
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`;
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: lineItems,

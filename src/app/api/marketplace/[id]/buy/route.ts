@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth } from '@/lib/auth/verify';
-import { stripe, calculateFees, formatAmountForStripe } from '@/lib/stripe';
+import { getStripe, calculateFees, formatAmountForStripe } from '@/lib/stripe';
 
 // POST /api/marketplace/[id]/buy - Buy a resale listing
 export async function POST(
@@ -85,7 +85,7 @@ export async function POST(
       `${request.headers.get('x-forwarded-proto') || 'http'}://${request.headers.get('host')}`;
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
       line_items: [
