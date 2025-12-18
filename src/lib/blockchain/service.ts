@@ -157,7 +157,7 @@ class BlockchainService {
       seatNumber: params.seatNumber || 0,
       tier: params.tier,
       originalPrice: params.originalPrice,
-      mintTimestamp: 0n, // Set by contract
+      mintTimestamp: BigInt(0), // Set by contract
       used: false,
     };
 
@@ -219,7 +219,7 @@ class BlockchainService {
       seatNumber: params.seatNumber || 0,
       tier: params.tier,
       originalPrice: params.originalPrice,
-      mintTimestamp: 0n,
+      mintTimestamp: BigInt(0),
       used: false,
     }));
 
