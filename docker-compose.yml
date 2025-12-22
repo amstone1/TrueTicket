@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    image: ghcr.io/amstone1/trueticket:latest
     container_name: trueticket
     restart: unless-stopped
     ports:
