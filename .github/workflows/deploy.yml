@@ -43,14 +43,14 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Install dependencies
-            npm install --legacy-peer-deps
+            # Rebuild and restart Docker containers
+            docker-compose down
+            docker-compose build --no-cache
+            docker-compose up -d
 
-            # Build the app
-            npm run build
-
-            # Restart the application
-            pm2 restart trueticket-api || pm2 start npm --name trueticket-api -- start
+            # Wait for health check
+            sleep 10
+            docker ps
 
             echo "Deployment complete!"
           ENDSSH
