@@ -47,8 +47,7 @@ export async function POST(request: NextRequest) {
 
     // Convert existing credentials to excludeCredentials format
     const excludeCredentials = user.webAuthnCredentials.map((cred) => ({
-      id: Buffer.from(cred.credentialId, 'base64url'),
-      type: 'public-key' as const,
+      id: cred.credentialId,
       transports: JSON.parse(cred.transports) as AuthenticatorTransportFuture[],
     }));
 
