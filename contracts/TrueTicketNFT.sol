@@ -44,6 +44,11 @@ contract TrueTicketNFT is
     mapping(uint8 => TierInfo) private _tierInfo;
     mapping(address => mapping(uint8 => uint256)) private _mintedPerWalletPerTier;
 
+    // Biometric binding - patent-critical innovation for anti-scalping
+    mapping(uint256 => BiometricBinding) private _biometricBindings;
+    mapping(uint256 => bool) private _requiresBiometricRebind;
+    uint8 public constant BIOMETRIC_BINDING_VERSION = 1;
+
     struct TierInfo {
         uint256 price;
         uint32 supply;
@@ -60,6 +65,14 @@ contract TrueTicketNFT is
     error TierSoldOut();
     error ExceedsMaxPerWallet();
     error ArrayLengthMismatch();
+
+    // Biometric binding errors
+    error BiometricAlreadyBound();
+    error BiometricNotBound();
+    error BiometricRebindPending();
+    error InvalidBiometricSignature();
+    error NotTicketOwner();
+    error ZeroBiometricHash();
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -229,6 +242,17 @@ contract TrueTicketNFT is
             restriction.transferCount++;
 
             emit TicketTransferred(tokenId, from, to, 0);
+
+            // Invalidate biometric binding on transfer - patent-critical
+            // New owner must rebind their biometric before venue check-in
+            if (_biometricBindings[tokenId].isActive) {
+                bytes32 previousHash = _biometricBindings[tokenId].biometricHash;
+                _biometricBindings[tokenId].isActive = false;
+                _requiresBiometricRebind[tokenId] = true;
+
+                emit BiometricUnbound(tokenId, previousHash, block.timestamp, "transfer");
+                emit BiometricRebindRequired(tokenId, to, block.timestamp);
+            }
         }
 
         return super._update(to, tokenId, auth);
@@ -242,6 +266,156 @@ contract TrueTicketNFT is
 
         _ticketMetadata[tokenId].used = true;
         emit TicketUsed(tokenId, block.timestamp);
+    }
+
+    // ============ Biometric Binding - Patent-Critical Innovation ============
+
+    /**
+     * @notice Bind a biometric hash to a ticket
+     * @dev This creates a cryptographic link between the ticket and owner's biometric
+     * @param tokenId The ticket to bind
+     * @param biometricHash Keccak256 hash of the biometric template (never raw data)
+     * @param signature Platform signature authorizing this binding
+     */
+    function bindBiometric(
+        uint256 tokenId,
+        bytes32 biometricHash,
+        bytes calldata signature
+    ) external {
+        if (_ownerOf(tokenId) == address(0)) revert ERC721NonexistentToken(tokenId);
+        if (ownerOf(tokenId) != msg.sender) revert NotTicketOwner();
+        if (biometricHash == bytes32(0)) revert ZeroBiometricHash();
+        if (_biometricBindings[tokenId].isActive) revert BiometricAlreadyBound();
+
+        // Verify platform signature (prevents unauthorized bindings)
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(tokenId, biometricHash, msg.sender, block.chainid)
+        );
+        bytes32 ethSignedMessage = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+        address signer = _recoverSigner(ethSignedMessage, signature);
+
+        // Signer must have OPERATOR_ROLE (platform wallet)
+        if (!hasRole(OPERATOR_ROLE, signer)) revert InvalidBiometricSignature();
+
+        _biometricBindings[tokenId] = BiometricBinding({
+            biometricHash: biometricHash,
+            boundAt: block.timestamp,
+            bindingVersion: BIOMETRIC_BINDING_VERSION,
+            isActive: true
+        });
+
+        _requiresBiometricRebind[tokenId] = false;
+
+        emit BiometricBound(tokenId, biometricHash, block.timestamp);
+    }
+
+    /**
+     * @notice Rebind biometric after a transfer
+     * @dev Called by new owner after they've transferred the ticket
+     * @param tokenId The ticket to rebind
+     * @param newBiometricHash Hash of new owner's biometric template
+     * @param ownerSignature Platform signature authorizing rebind
+     */
+    function rebindBiometric(
+        uint256 tokenId,
+        bytes32 newBiometricHash,
+        bytes calldata ownerSignature
+    ) external {
+        if (_ownerOf(tokenId) == address(0)) revert ERC721NonexistentToken(tokenId);
+        if (ownerOf(tokenId) != msg.sender) revert NotTicketOwner();
+        if (newBiometricHash == bytes32(0)) revert ZeroBiometricHash();
+
+        // Verify platform signature
+        bytes32 messageHash = keccak256(
+            abi.encodePacked(tokenId, newBiometricHash, msg.sender, "rebind", block.chainid)
+        );
+        bytes32 ethSignedMessage = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+        address signer = _recoverSigner(ethSignedMessage, ownerSignature);
+
+        if (!hasRole(OPERATOR_ROLE, signer)) revert InvalidBiometricSignature();
+
+        // Store previous hash for audit trail
+        bytes32 previousHash = _biometricBindings[tokenId].biometricHash;
+
+        _biometricBindings[tokenId] = BiometricBinding({
+            biometricHash: newBiometricHash,
+            boundAt: block.timestamp,
+            bindingVersion: BIOMETRIC_BINDING_VERSION,
+            isActive: true
+        });
+
+        _requiresBiometricRebind[tokenId] = false;
+
+        if (previousHash != bytes32(0)) {
+            emit BiometricUnbound(tokenId, previousHash, block.timestamp, "rebind");
+        }
+        emit BiometricBound(tokenId, newBiometricHash, block.timestamp);
+    }
+
+    /**
+     * @notice Unbind biometric (admin function for support cases)
+     * @param tokenId The ticket to unbind
+     * @param reason Reason for unbinding (audit trail)
+     */
+    function unbindBiometric(
+        uint256 tokenId,
+        string calldata reason
+    ) external onlyRole(OPERATOR_ROLE) {
+        if (_ownerOf(tokenId) == address(0)) revert ERC721NonexistentToken(tokenId);
+        if (!_biometricBindings[tokenId].isActive) revert BiometricNotBound();
+
+        bytes32 previousHash = _biometricBindings[tokenId].biometricHash;
+        _biometricBindings[tokenId].isActive = false;
+
+        emit BiometricUnbound(tokenId, previousHash, block.timestamp, reason);
+    }
+
+    /**
+     * @notice Get biometric binding for a ticket
+     */
+    function getBiometricBinding(uint256 tokenId) external view returns (BiometricBinding memory) {
+        return _biometricBindings[tokenId];
+    }
+
+    /**
+     * @notice Check if ticket requires biometric rebind (after transfer)
+     */
+    function requiresBiometricRebind(uint256 tokenId) external view returns (bool) {
+        return _requiresBiometricRebind[tokenId];
+    }
+
+    /**
+     * @notice Check if ticket has active biometric binding
+     */
+    function isBiometricBound(uint256 tokenId) external view returns (bool) {
+        return _biometricBindings[tokenId].isActive;
+    }
+
+    /**
+     * @dev Recover signer from signature
+     */
+    function _recoverSigner(bytes32 ethSignedMessage, bytes calldata signature) internal pure returns (address) {
+        require(signature.length == 65, "Invalid signature length");
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 32))
+            v := byte(0, calldataload(add(signature.offset, 64)))
+        }
+
+        if (v < 27) {
+            v += 27;
+        }
+
+        return ecrecover(ethSignedMessage, v, r, s);
     }
 
     // ============ View Functions ============

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { useRouter } from 'next/navigation';
 import { getInitials } from '@/lib/utils';
 import type { User, UserRole } from '@/types';
+import { useWebAuthn } from '@/hooks/useWebAuthn';
 
 // Unified User type that matches our types/index.ts
 interface AuthUser {
@@ -45,6 +46,12 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   clearError: () => void;
 
+  // WebAuthn / Biometric authentication
+  loginWithBiometric: (email: string) => Promise<{ success: boolean; error?: string }>;
+  registerBiometric: (deviceName?: string) => Promise<{ success: boolean; error?: string }>;
+  hasBiometricCredential: boolean;
+  webAuthnSupported: boolean;
+
   // Display helpers
   displayName: string;
   initials: string;
@@ -77,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasBiometricCredential, setHasBiometricCredential] = useState(false);
+
+  // WebAuthn hook for biometric authentication
+  const webAuthn = useWebAuthn();
 
   const refreshUser = useCallback(async () => {
     try {
@@ -193,6 +204,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearError = () => setError(null);
 
+  // WebAuthn biometric login
+  const loginWithBiometric = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    setError(null);
+
+    try {
+      const result = await webAuthn.authenticateWithBiometric(email);
+
+      if (!result.success) {
+        setError(result.error || 'Biometric login failed');
+        return { success: false, error: result.error };
+      }
+
+      // Refresh user data after successful login
+      await refreshUser();
+      return { success: true };
+    } catch (err) {
+      const errorMessage = 'Biometric authentication failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Register biometric credential for current user
+  const registerBiometric = async (deviceName?: string): Promise<{ success: boolean; error?: string }> => {
+    setError(null);
+
+    if (!user) {
+      const errorMessage = 'You must be logged in to register biometric authentication';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+
+    try {
+      const result = await webAuthn.registerBiometric(deviceName);
+
+      if (!result.success) {
+        setError(result.error || 'Biometric registration failed');
+        return { success: false, error: result.error };
+      }
+
+      setHasBiometricCredential(true);
+      return { success: true };
+    } catch (err) {
+      const errorMessage = 'Failed to register biometric authentication';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
   // Computed display values
   const displayName = user?.displayName || 'Guest';
   const initials = user?.displayName ? getInitials(user.displayName) : '?';
@@ -210,6 +270,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logoutAll,
         refreshUser,
         clearError,
+        // WebAuthn / Biometric
+        loginWithBiometric,
+        registerBiometric,
+        hasBiometricCredential,
+        webAuthnSupported: webAuthn.isSupported && webAuthn.isPlatformAvailable,
+        // Display helpers
         displayName,
         initials,
         avatarUrl: user?.avatarUrl,

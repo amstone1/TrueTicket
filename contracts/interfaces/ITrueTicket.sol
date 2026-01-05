@@ -33,12 +33,37 @@ interface ITrueTicketNFT {
         uint256 price
     );
 
+    struct BiometricBinding {
+        bytes32 biometricHash;      // Hash of biometric template (never raw data)
+        uint256 boundAt;            // Timestamp of binding
+        uint8 bindingVersion;       // Version for upgrade compatibility
+        bool isActive;              // Whether binding is currently active
+    }
+
     event TicketUsed(uint256 indexed tokenId, uint256 timestamp);
     event TicketTransferred(
         uint256 indexed tokenId,
         address indexed from,
         address indexed to,
         uint256 salePrice
+    );
+
+    // Biometric binding events - patent-critical innovation
+    event BiometricBound(
+        uint256 indexed tokenId,
+        bytes32 indexed biometricHash,
+        uint256 boundAt
+    );
+    event BiometricUnbound(
+        uint256 indexed tokenId,
+        bytes32 previousHash,
+        uint256 unboundAt,
+        string reason
+    );
+    event BiometricRebindRequired(
+        uint256 indexed tokenId,
+        address indexed newOwner,
+        uint256 transferTimestamp
     );
 
     function mint(
@@ -57,6 +82,28 @@ interface ITrueTicketNFT {
     function getTicketMetadata(uint256 tokenId) external view returns (TicketMetadata memory);
     function getTransferRestriction(uint256 tokenId) external view returns (TransferRestriction memory);
     function eventId() external view returns (uint256);
+
+    // Biometric binding functions - patent-critical
+    function bindBiometric(
+        uint256 tokenId,
+        bytes32 biometricHash,
+        bytes calldata signature
+    ) external;
+
+    function rebindBiometric(
+        uint256 tokenId,
+        bytes32 newBiometricHash,
+        bytes calldata ownerSignature
+    ) external;
+
+    function unbindBiometric(
+        uint256 tokenId,
+        string calldata reason
+    ) external;
+
+    function getBiometricBinding(uint256 tokenId) external view returns (BiometricBinding memory);
+    function requiresBiometricRebind(uint256 tokenId) external view returns (bool);
+    function isBiometricBound(uint256 tokenId) external view returns (bool);
 }
 
 /**

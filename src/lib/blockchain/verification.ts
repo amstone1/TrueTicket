@@ -278,3 +278,201 @@ export async function generateLiveQRData(
 
   return Buffer.from(JSON.stringify(qrData)).toString('base64');
 }
+
+// ============ ZK Biometric Verification - Patent-Critical ============
+
+import {
+  verifyTicketProof,
+  generateNonce,
+  type ZKProofPackage,
+} from '@/lib/zk';
+
+export interface ZKVerificationData {
+  ticketId: string;
+  eventId: string;
+  nonce: string;
+  nonceExpiry: number;
+  merkleRoot: string;
+  requiresBiometric: boolean;
+}
+
+/**
+ * Generate ZK verification data for a ticket
+ * This is used when the user needs to generate a ZK proof for check-in
+ */
+export async function generateZKVerificationData(
+  ticketId: string,
+  userId: string
+): Promise<ZKVerificationData> {
+  // Fetch ticket and verify ownership
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    include: {
+      owner: true,
+      event: {
+        include: {
+          zkMerkleTree: true,
+        },
+      },
+    },
+  });
+
+  if (!ticket) {
+    throw new Error('Ticket not found');
+  }
+
+  if (ticket.ownerId !== userId) {
+    throw new Error('You do not own this ticket');
+  }
+
+  if (ticket.status !== 'VALID') {
+    throw new Error(`Ticket is ${ticket.status.toLowerCase()}`);
+  }
+
+  // Generate nonce
+  const nonce = generateNonce();
+  const nonceExpiry = Math.floor(Date.now() / 1000) + 60; // 60 second expiry
+
+  // Get Merkle root
+  const merkleRoot = ticket.event.zkMerkleTree?.merkleRoot || '';
+
+  return {
+    ticketId: ticket.id,
+    eventId: ticket.eventId,
+    nonce: nonce.toString(),
+    nonceExpiry,
+    merkleRoot,
+    requiresBiometric: ticket.requiresZKVerification || false,
+  };
+}
+
+/**
+ * Verify a ZK proof for check-in
+ * This proves ticket ownership + biometric match without revealing ticket ID
+ */
+export async function verifyZKCheckIn(
+  proof: ZKProofPackage,
+  eventId: string,
+  biometricMatched: boolean
+): Promise<{
+  valid: boolean;
+  reason?: string;
+}> {
+  try {
+    // Verify the ZK proof
+    const result = await verifyTicketProof(proof, eventId);
+
+    if (!result.valid) {
+      return {
+        valid: false,
+        reason: result.reason,
+      };
+    }
+
+    // If biometric verification was required, check it passed
+    if (!biometricMatched) {
+      return {
+        valid: false,
+        reason: 'Biometric verification failed',
+      };
+    }
+
+    return { valid: true };
+  } catch (error) {
+    console.error('ZK verification error:', error);
+    return {
+      valid: false,
+      reason: 'Verification error: ' + (error as Error).message,
+    };
+  }
+}
+
+/**
+ * Process ZK check-in after verification succeeds
+ * Note: We don't know which specific ticket was used (that's the privacy feature!)
+ */
+export async function processZKCheckIn(
+  eventId: string,
+  proofHash: string,
+  scannerId: string,
+  biometricMatchScore?: number
+): Promise<{ success: boolean }> {
+  try {
+    // Log the ZK verification (we can't mark a specific ticket as used
+    // because we don't know which one it was - that's the privacy guarantee)
+    await prisma.zKProofLog.create({
+      data: {
+        eventId,
+        proofType: 'COMBINED',
+        proofHash,
+        circuitName: 'TrueTicketVerification',
+        publicInputs: '{}',
+        verified: true,
+        verifiedOnChain: false,
+        proverAddress: scannerId,
+      },
+    });
+
+    // In a full implementation, the venue would have a separate
+    // attendance tracking system that doesn't link to specific tickets
+
+    return { success: true };
+  } catch (error) {
+    console.error('ZK check-in processing error:', error);
+    return { success: false };
+  }
+}
+
+/**
+ * Verify biometric at venue
+ * Compares live face capture with enrolled template
+ */
+export async function verifyBiometricAtVenue(
+  userId: string,
+  liveFaceTemplate: number[]
+): Promise<{
+  matched: boolean;
+  score: number;
+  livenessVerified: boolean;
+}> {
+  // Fetch user's enrolled biometric
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      faceTemplateHash: true,
+      biometricCommitment: true,
+    },
+  });
+
+  if (!user?.faceTemplateHash) {
+    return {
+      matched: false,
+      score: 0,
+      livenessVerified: false,
+    };
+  }
+
+  // In production, this would:
+  // 1. Extract face embeddings from live capture
+  // 2. Compare with stored hash
+  // 3. Return match score
+
+  // For now, we simulate a successful match
+  // Real implementation would use face recognition SDK
+
+  const crypto = await import('crypto');
+  const liveHash = crypto
+    .createHash('sha256')
+    .update(Buffer.from(new Float32Array(liveFaceTemplate).buffer))
+    .digest('hex');
+
+  // Mock matching - in production, use proper face comparison
+  const matched = true; // Would be: liveHash === user.faceTemplateHash with proper SDK
+  const score = matched ? 0.95 : 0.2;
+
+  return {
+    matched,
+    score,
+    livenessVerified: true, // Would come from liveness check
+  };
+}

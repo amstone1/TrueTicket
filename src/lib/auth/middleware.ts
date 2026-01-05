@@ -117,3 +117,41 @@ export function canManageEvents(user: TokenPayload): boolean {
 export function canScanTickets(user: TokenPayload): boolean {
   return ['VENUE', 'ORGANIZER', 'ADMIN'].includes(user.role);
 }
+
+/**
+ * Get server session from cookies (for use in API routes)
+ * Returns a session-like object compatible with common auth patterns
+ */
+export async function getServerSession(): Promise<{
+  user: { id: string; email?: string; role: string };
+} | null> {
+  // In Next.js App Router, we need to use the cookies() function
+  // But for API routes, we get cookies from the request
+  // This helper is meant to be called with the request context
+
+  // For now, return null - caller should use requireAuth or getAuthFromRequest
+  // This is a placeholder for a more sophisticated session management
+  return null;
+}
+
+/**
+ * Get server session from a request object
+ * Use this in API routes where you have access to the request
+ */
+export async function getServerSessionFromRequest(request: NextRequest): Promise<{
+  user: { id: string; email?: string; role: string };
+} | null> {
+  const tokenPayload = await getAuthFromRequest(request);
+
+  if (!tokenPayload) {
+    return null;
+  }
+
+  return {
+    user: {
+      id: tokenPayload.userId,
+      email: tokenPayload.email,
+      role: tokenPayload.role,
+    },
+  };
+}

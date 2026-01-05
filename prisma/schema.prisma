@@ -38,6 +38,18 @@ model User {
   avatarUrl         String?
   bio               String?
 
+  // WebAuthn credentials (for device biometric login)
+  webAuthnCredentials WebAuthnCredential[]
+
+  // Face template for venue check-in (stored as hash, never raw biometric)
+  faceTemplateHash    String?
+  faceTemplateVersion Int?
+  faceEnrolledAt      DateTime?
+
+  // ZK verification preferences
+  zkVerificationEnabled Boolean @default(false)
+  biometricCommitment   String? // Poseidon hash commitment for ZK proofs
+
   // Legacy flags (kept for compatibility)
   isVerified        Boolean   @default(false)
   isArtist          Boolean   @default(false)
@@ -61,6 +73,7 @@ model User {
 
   @@index([walletAddress])
   @@index([email])
+  @@index([faceTemplateHash])
 }
 
 enum UserRole {
@@ -87,6 +100,38 @@ model Session {
 
   @@index([userId])
   @@index([refreshToken])
+}
+
+// ============================================
+// WEBAUTHN CREDENTIALS (Device Biometric Login)
+// ============================================
+
+model WebAuthnCredential {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // WebAuthn credential data
+  credentialId    String   @unique // Base64 encoded credential ID
+  publicKey       String            // Base64 encoded public key (COSE format)
+  counter         BigInt   @default(0) // Signature counter for replay protection
+
+  // Credential metadata
+  deviceType      String?  // "platform" (built-in) or "cross-platform" (security key)
+  transports      String   @default("[]") // JSON array: ["internal", "usb", "ble", "nfc"]
+  aaguid          String?  // Authenticator Attestation GUID
+
+  // Device info for user management
+  deviceName      String?  // User-friendly name like "iPhone 15 Pro"
+  userAgent       String?
+
+  // Status
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  lastUsedAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([credentialId])
 }
 
 // ============================================
@@ -160,6 +205,9 @@ model Event {
   purchases           Purchase[]
   favorites           EventFavorite[]
   checkIns            CheckIn[]
+
+  // ZK Merkle tree for privacy-preserving ticket verification
+  zkMerkleTree        ZKMerkleTree?
 
   @@index([organizerId])
   @@index([status])
@@ -265,6 +313,16 @@ model Ticket {
   purchaseId        String?
   originalPriceUsd  Float
 
+  // Biometric binding - prevents scalping by requiring biometric re-bind on transfer
+  biometricBindings      BiometricBinding[]
+  currentBiometricHash   String?  // Quick reference to active binding hash
+  biometricBoundAt       DateTime?
+
+  // ZK verification data
+  zkMerkleLeaf           String?  // Poseidon(ticketData, salt) for Merkle tree
+  zkTicketSalt           String?  // Random salt for privacy
+  requiresZKVerification Boolean  @default(false)
+
   mintedAt          DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
@@ -278,6 +336,7 @@ model Ticket {
   @@index([tokenId, contractAddress])
   @@index([status])
   @@index([checkInCode])
+  @@index([currentBiometricHash])
 }
 
 model TicketTransfer {
@@ -493,6 +552,16 @@ model CheckIn {
 
   txHash        String?
 
+  // Biometric verification at check-in
+  biometricVerified   Boolean  @default(false)
+  biometricMatchScore Float?   // 0.0 - 1.0 confidence score
+  biometricMethod     BiometricCheckInMethod?
+  livenessVerified    Boolean  @default(false)
+
+  // ZK proof verification
+  zkProofVerified     Boolean  @default(false)
+  zkProofHash         String?  // Hash of the ZK proof for audit
+
   checkedInAt   DateTime  @default(now())
 
   @@index([ticketId])
@@ -504,6 +573,12 @@ enum CheckInMethod {
   NFC
   MANUAL
   WALLET_SIGNATURE
+  ZK_PROOF
+}
+
+enum BiometricCheckInMethod {
+  FACE_SCAN
+  WEBAUTHN_CHALLENGE
 }
 
 enum CheckInStatus {
@@ -640,4 +715,133 @@ model EventFavorite {
   @@unique([userId, eventId])
   @@index([userId])
   @@index([eventId])
+}
+
+// ============================================
+// BIOMETRIC BINDING (Anti-Scalping)
+// ============================================
+
+model BiometricBinding {
+  id              String        @id @default(cuid())
+  ticketId        String
+  ticket          Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  // Biometric commitment (never store raw biometrics)
+  biometricHash   String        // Keccak256 hash of biometric template
+  biometricType   BiometricType
+  bindingVersion  Int           @default(1) // For algorithm upgrades
+
+  // Cryptographic proof of binding
+  commitmentProof String?       // Signature proving ownership at binding time
+  nonce           String?       // Prevent replay attacks
+
+  // Status tracking
+  status          BindingStatus @default(ACTIVE)
+  boundAt         DateTime      @default(now())
+  unboundAt       DateTime?
+  unboundReason   String?
+
+  // For tracking rebinding after transfer
+  previousBindingId String?
+
+  @@unique([ticketId, status]) // Only one active binding per ticket
+  @@index([ticketId])
+  @@index([biometricHash])
+  @@index([status])
+}
+
+enum BiometricType {
+  FACE_TEMPLATE
+  WEBAUTHN_CREDENTIAL
+}
+
+enum BindingStatus {
+  ACTIVE
+  PENDING_REBIND  // After transfer, before new owner binds
+  TRANSFERRED     // Historical record
+  REVOKED
+}
+
+// ============================================
+// ZK VERIFICATION (Zero-Knowledge Proofs)
+// ============================================
+
+model ZKMerkleTree {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Current Merkle root (updated when tickets are minted)
+  merkleRoot  String
+  totalLeaves Int      @default(0)
+
+  // Serialized tree data for proof generation
+  // JSON: { leaves: string[], depth: number }
+  treeData    String
+
+  // On-chain sync status
+  onChainRoot String?  // Root stored on-chain
+  lastSyncTx  String?  // Transaction hash of last sync
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId])
+  @@index([merkleRoot])
+}
+
+model ZKUsedNonce {
+  id        String   @id @default(cuid())
+  nonce     String   @unique
+  ticketId  String
+  eventId   String
+
+  // Proof verification details
+  proofHash String?  // Hash of the ZK proof for audit
+  verifiedAt DateTime @default(now())
+  verifiedBy String?  // Scanner ID or system
+
+  @@index([nonce])
+  @@index([ticketId])
+  @@index([eventId])
+}
+
+// ============================================
+// ZK PROOF LOGS (Audit Trail)
+// ============================================
+
+model ZKProofLog {
+  id            String   @id @default(cuid())
+  eventId       String
+  ticketId      String?
+
+  proofType     ZKProofType
+  proofHash     String   @unique
+  circuitName   String   // e.g., "ticket-ownership-v1"
+
+  // Public inputs used in verification
+  publicInputs  String   // JSON serialized
+
+  // Verification result
+  verified      Boolean
+  verifiedOnChain Boolean @default(false)
+  onChainTxHash String?
+
+  // Metadata
+  proverAddress String?  // Wallet that generated the proof
+  verifierAddress String? // Contract or service that verified
+
+  createdAt     DateTime @default(now())
+  verifiedAt    DateTime?
+
+  @@index([eventId])
+  @@index([ticketId])
+  @@index([proofHash])
+  @@index([proofType])
+}
+
+enum ZKProofType {
+  TICKET_OWNERSHIP    // Proves ownership of a ticket in the set
+  BIOMETRIC_MATCH     // Proves biometric matches bound template
+  COMBINED            // Both ownership and biometric in one proof
 }

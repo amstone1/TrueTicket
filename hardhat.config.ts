@@ -34,6 +34,28 @@ const config: HardhatUserConfig = {
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId: 137,
     },
+    // TrueTicket L2 (Conduit-based Arbitrum Orbit rollup)
+    trueticketL2Testnet: {
+      url: process.env.TRUETICKET_L2_TESTNET_RPC_URL || "https://testnet-rpc.trueticket.conduit.xyz",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 88887, // Testnet chain ID
+    },
+    trueticketL2: {
+      url: process.env.TRUETICKET_L2_RPC_URL || "https://rpc.trueticket.conduit.xyz",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 88888, // Mainnet chain ID
+    },
+    // Arbitrum (for settlement layer)
+    arbitrumOne: {
+      url: process.env.ARBITRUM_RPC_URL || "https://arb1.arbitrum.io/rpc",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 42161,
+    },
+    arbitrumSepolia: {
+      url: process.env.ARBITRUM_SEPOLIA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 421614,
+    },
   },
   paths: {
     sources: "./contracts",

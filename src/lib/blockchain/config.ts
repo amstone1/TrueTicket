@@ -28,6 +28,35 @@ export const CHAIN_CONFIG = {
     blockExplorer: 'https://polygonscan.com',
     nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
   },
+  // TrueTicket L2 Testnet (Conduit-based Arbitrum Orbit)
+  trueticketL2Testnet: {
+    chainId: 88887,
+    name: 'TrueTicket L2 Testnet',
+    rpcUrl: process.env.TRUETICKET_L2_TESTNET_RPC_URL || 'https://testnet-rpc.trueticket.conduit.xyz',
+    blockExplorer: 'https://testnet-explorer.trueticket.conduit.xyz',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    bridgeUrl: 'https://testnet-bridge.trueticket.conduit.xyz',
+  },
+  // TrueTicket L2 Mainnet (Conduit-based Arbitrum Orbit)
+  trueticketL2: {
+    chainId: 88888,
+    name: 'TrueTicket L2',
+    rpcUrl: process.env.TRUETICKET_L2_RPC_URL || 'https://rpc.trueticket.conduit.xyz',
+    blockExplorer: 'https://explorer.trueticket.conduit.xyz',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    bridgeUrl: 'https://bridge.trueticket.conduit.xyz',
+    // L2 specific settings
+    settlementLayer: 'arbitrumOne',
+    dataAvailability: 'celestia',
+  },
+  // Arbitrum One (settlement layer)
+  arbitrumOne: {
+    chainId: 42161,
+    name: 'Arbitrum One',
+    rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
+    blockExplorer: 'https://arbiscan.io',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
 } as const;
 
 export type ChainName = keyof typeof CHAIN_CONFIG;
@@ -82,6 +111,9 @@ export const CONTRACT_ADDRESSES: Record<ChainName, DeployedContracts | null> = {
   hardhat: loadContractAddresses('hardhat'),
   polygonAmoy: loadContractAddresses('polygonAmoy'),
   polygon: loadContractAddresses('polygon'),
+  trueticketL2Testnet: loadContractAddresses('trueticketL2Testnet'),
+  trueticketL2: loadContractAddresses('trueticketL2'),
+  arbitrumOne: loadContractAddresses('arbitrumOne'),
 };
 
 export const getContractAddresses = (chain?: ChainName): DeployedContracts | null => {
