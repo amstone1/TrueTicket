@@ -65,7 +65,7 @@ template TrueTicketVerification(merkleDepth, biometricElements) {
     component biometricProof = BiometricMatchProof(biometricElements);
     biometricProof.commitment <== biometricCommitment;
     for (var i = 0; i < biometricElements; i++) {
-        biometricProof.template[i] <== biometricTemplate[i];
+        biometricProof.templateData[i] <== biometricTemplate[i];
     }
     biometricProof.salt <== biometricSalt;
 
@@ -77,7 +77,10 @@ template TrueTicketVerification(merkleDepth, biometricElements) {
 
     // ============ Combine All Proofs ============
     // All three must be valid (1 * 1 * 1 = 1)
-    valid <== ticketProof.valid * biometricProof.valid * nonceProof.valid;
+    // Circom requires quadratic constraints, so we break into two multiplications
+    signal ticketAndBiometric;
+    ticketAndBiometric <== ticketProof.valid * biometricProof.valid;
+    valid <== ticketAndBiometric * nonceProof.valid;
 }
 
 // Default instantiation for TrueTicket

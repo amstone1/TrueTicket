@@ -16,8 +16,8 @@ import type {
 } from './types';
 
 // Circuit artifacts paths (loaded from public folder in browser)
-const CIRCUIT_WASM_PATH = '/circuits/main.wasm';
-const CIRCUIT_ZKEY_PATH = '/circuits/circuit_final.zkey';
+const CIRCUIT_WASM_PATH = '/zk/main.wasm';
+const CIRCUIT_ZKEY_PATH = '/zk/main_final.zkey';
 
 /**
  * Check if we're in a browser environment

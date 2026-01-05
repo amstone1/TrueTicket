@@ -27,7 +27,7 @@ template BiometricMatchProof(numElements) {
     signal input commitment;
 
     // Private inputs
-    signal input template[numElements];  // Biometric template hash elements
+    signal input templateData[numElements];  // Biometric template hash elements
     signal input salt;
 
     signal output valid;
@@ -39,7 +39,7 @@ template BiometricMatchProof(numElements) {
     // First hash the template elements
     component templateHash = Poseidon(numElements);
     for (var i = 0; i < numElements; i++) {
-        templateHash.inputs[i] <== template[i];
+        templateHash.inputs[i] <== templateData[i];
     }
 
     // Then combine with salt
@@ -61,7 +61,7 @@ template BiometricMatchProof(numElements) {
  */
 template ExtendedBiometricMatchProof(numElements) {
     signal input commitment;
-    signal input template[numElements];
+    signal input templateData[numElements];
     signal input salt;
 
     signal output valid;
@@ -84,7 +84,7 @@ template ExtendedBiometricMatchProof(numElements) {
         for (var i = 0; i < chunkSize; i++) {
             var idx = c * 15 + i;
             if (idx < numElements) {
-                chunkHashers[c].inputs[i] <== template[idx];
+                chunkHashers[c].inputs[i] <== templateData[idx];
             }
         }
         chunkHashes[c] <== chunkHashers[c].out;

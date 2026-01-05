@@ -185,6 +185,11 @@ export function deserializeTree(data: string): MerkleTree {
 }
 
 /**
+ * Alias for buildMerkleTree for convenience
+ */
+export const createMerkleTree = buildMerkleTree;
+
+/**
  * Build tree from ticket data
  */
 export async function buildTreeFromTickets(
