@@ -8,7 +8,7 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface FaceEnrollmentProps {

@@ -76,7 +76,8 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(npm run build:*)",
-      "Bash(gh run watch:*)"
+      "Bash(gh run watch:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
