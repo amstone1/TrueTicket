@@ -14,7 +14,6 @@ import jwt from 'jsonwebtoken';
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost';
 const ORIGIN = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 export async function POST(request: NextRequest) {
   try {
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Generate JWT token
+    // Generate JWT token (expiresIn accepts string like "7d" or number in seconds)
     const token = jwt.sign(
       {
         userId: credential.user.id,
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
         credentialId: credential.id,
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: '7d' }
     );
 
     // Clear challenge cookies and set session
