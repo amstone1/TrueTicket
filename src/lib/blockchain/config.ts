@@ -91,16 +91,19 @@ function loadContractAddresses(chain: ChainName): DeployedContracts | null {
     }
   }
 
-  // Try loading from deployment file (server-side only)
-  if (typeof window === 'undefined') {
-    try {
-      const networkName = chain === 'polygonAmoy' ? 'amoy' : chain;
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const deployment = require(`../../../../deployments/${networkName}.json`);
-      return deployment.contracts;
-    } catch {
-      // Deployment file doesn't exist
-    }
+  // Try loading from environment variables (NEXT_PUBLIC_ prefix for client-side access)
+  const factoryAddr = process.env.NEXT_PUBLIC_TICKET_FACTORY_ADDRESS;
+  const marketplaceAddr = process.env.NEXT_PUBLIC_MARKETPLACE_ADDRESS;
+  const pricingAddr = process.env.NEXT_PUBLIC_PRICING_CONTROLLER_ADDRESS;
+  const royaltyAddr = process.env.NEXT_PUBLIC_ROYALTY_DISTRIBUTOR_ADDRESS;
+
+  if (factoryAddr && marketplaceAddr && pricingAddr && royaltyAddr) {
+    return {
+      eventFactory: factoryAddr,
+      marketplace: marketplaceAddr,
+      pricingController: pricingAddr,
+      royaltyDistributor: royaltyAddr,
+    };
   }
 
   return null;

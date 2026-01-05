@@ -55,8 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Convert credentials to allowCredentials format
     const allowCredentials = user.webAuthnCredentials.map((cred) => ({
-      id: Buffer.from(cred.credentialId, 'base64url'),
-      type: 'public-key' as const,
+      id: cred.credentialId,
       transports: JSON.parse(cred.transports) as AuthenticatorTransportFuture[],
     }));
 
