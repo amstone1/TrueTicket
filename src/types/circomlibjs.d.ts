@@ -1,10 +1,15 @@
 declare module 'circomlibjs' {
+  export interface PoseidonF {
+    toObject(v: Uint8Array): bigint;
+    toString(v: Uint8Array, radix?: number): string;
+    e(v: bigint | number | string): bigint;
+    zero: bigint;
+    one: bigint;
+  }
+
   export interface Poseidon {
-    (inputs: bigint[]): Uint8Array;
-    F: {
-      toObject(v: Uint8Array): bigint;
-      toString(v: Uint8Array, radix?: number): string;
-    };
+    (inputs: (bigint | Uint8Array)[]): Uint8Array;
+    F: PoseidonF;
   }
 
   export function buildPoseidon(): Promise<Poseidon>;
