@@ -95,7 +95,8 @@
       "Bash(../../node_modules/.bin/snarkjs zkey export solidityverifier:*)",
       "Bash(NODE_OPTIONS='--trace-warnings' npm run build:*)",
       "Bash(git lfs:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(ssh root@trueticket.me \"cd /var/www/trueticket && docker logs trueticket 2>&1 | tail -50\")"
     ]
   }
 }
