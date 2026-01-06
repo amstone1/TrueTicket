@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: recipientId,
         eventId: validated.eventId,
-        paymentMethod: 'CRYPTO', // Mark as crypto to indicate test/bypass
+        paymentMethod: 'CRYPTO_MATIC', // Mark as crypto to indicate test/bypass
         paymentProvider: 'test',
         subtotalUsd: subtotal,
         feesUsd: fees,
