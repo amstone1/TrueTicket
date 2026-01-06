@@ -90,8 +90,8 @@ jobs:
             # Wait for container to be ready
             sleep 5
 
-            # Run database migration
-            docker exec trueticket npx prisma db push --accept-data-loss || echo "Migration warning (may be expected)"
+            # Run database migration using the bundled prisma version
+            docker exec trueticket node node_modules/prisma/build/index.js db push --accept-data-loss || echo "Migration warning (may be expected)"
 
             # Show status
             docker ps
