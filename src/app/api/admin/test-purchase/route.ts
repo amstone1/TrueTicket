@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { generateTicketQRCode } from '@/lib/qr';
 
 // Test purchase endpoint - ADMIN ONLY
 // This bypasses Stripe for testing purposes
