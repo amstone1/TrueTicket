@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
           tierId: validated.tierId,
           ownerId: recipientId,
           purchaseId: purchase.id,
-          status: 'ACTIVE',
+          status: 'VALID',
           tokenId,
           originalPriceUsd: tier.priceUsd,
           mintedAt: new Date(),
