@@ -37,8 +37,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/@prisma/engines ./node_modules/@prisma/engines
+
+# Install prisma CLI for migrations (as root before switching to nextjs user)
+RUN npm install -g prisma@6.19.1
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
