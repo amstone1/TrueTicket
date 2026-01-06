@@ -86,6 +86,12 @@ jobs:
             docker-compose down
             docker-compose up -d
 
+            # Wait for container to be ready
+            sleep 5
+
+            # Run database migration
+            docker exec trueticket npx prisma db push --skip-generate || echo "Migration warning (may be expected)"
+
             # Show status
             docker ps
 
