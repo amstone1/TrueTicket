@@ -77,7 +77,25 @@
       "Bash(gh run view:*)",
       "Bash(npm run build:*)",
       "Bash(gh run watch:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(rustc:*)",
+      "Bash(brew --version:*)",
+      "Bash(brew search:*)",
+      "Bash(brew install:*)",
+      "Bash(git clone:*)",
+      "Bash(cargo build:*)",
+      "Bash(sudo cp:*)",
+      "Bash(circom --version:*)",
+      "Bash(/Users/alexstone/Documents/GitHub/TrueTicket/bin/circom:*)",
+      "Bash(./bin/circom:*)",
+      "Bash(../../bin/circom:*)",
+      "Bash(../../node_modules/.bin/snarkjs groth16 setup:*)",
+      "Bash(../../node_modules/.bin/snarkjs zkey contribute:*)",
+      "Bash(../../node_modules/.bin/snarkjs zkey export verificationkey:*)",
+      "Bash(../../node_modules/.bin/snarkjs zkey export solidityverifier:*)",
+      "Bash(NODE_OPTIONS='--trace-warnings' npm run build:*)",
+      "Bash(git lfs:*)",
+      "Bash(git check-ignore:*)"
     ]
   }
 }
