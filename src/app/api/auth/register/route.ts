@@ -147,8 +147,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Return error details for debugging (temporarily)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
     return NextResponse.json(
-      { error: 'Registration failed. Please try again.' },
+      {
+        error: 'Registration failed. Please try again.',
+        details: errorMessage,
+      },
       { status: 500 }
     );
   }
