@@ -87,6 +87,12 @@ jobs:
             docker-compose down
             docker-compose up -d
 
+            # Ensure data directory exists with correct permissions
+            mkdir -p data
+            chmod 777 data
+            touch data/prod.db
+            chmod 666 data/prod.db
+
             # Wait for container to be ready
             sleep 5
 
