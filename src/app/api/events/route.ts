@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { serializeForJson } from '@/lib/utils';
+import { requireAuth } from '@/lib/auth/middleware';
 import type { EventFilters, PaginatedResponse, Event } from '@/types';
 
 // GET /api/events - List events with filters
@@ -153,13 +154,11 @@ const createEventSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  try {
-    // TODO: Add authentication check
-    // const session = await getServerSession();
-    // if (!session) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+  // Require authentication
+  const authResult = await requireAuth(request);
+  if (authResult instanceof NextResponse) return authResult;
 
+  try {
     const body = await request.json();
     const validated = createEventSchema.parse(body);
 
@@ -202,7 +201,7 @@ export async function POST(request: NextRequest) {
         maxResaleMarkupBps: validated.maxResaleMarkupBps,
         resaleRoyaltyBps: validated.resaleRoyaltyBps,
         status: 'DRAFT',
-        organizerId: 'temp-user-id', // TODO: Get from session
+        organizerId: authResult.user.userId,
         ticketTiers: {
           create: validated.tiers.map((tier) => ({
             name: tier.name,

@@ -22,10 +22,9 @@ const sidebarLinks: SidebarLink[] = [
   { label: 'Events', href: '/dashboard/events', icon: <Calendar className="w-5 h-5" /> },
   { label: 'Create Event', href: '/dashboard/events/new', icon: <PlusCircle className="w-5 h-5" /> },
   { label: 'Tickets', href: '/dashboard/tickets', icon: <Ticket className="w-5 h-5" /> },
-  { label: 'Royalties', href: '/dashboard/royalties', icon: <DollarSign className="w-5 h-5" /> },
+  { label: 'Royalties', href: '/royalties', icon: <DollarSign className="w-5 h-5" /> },
   { label: 'Analytics', href: '/dashboard/analytics', icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Team', href: '/dashboard/team', icon: <Users className="w-5 h-5" /> },
-  { label: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
+  { label: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 export default function DashboardLayout({
