@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
     // Create tickets
     const tickets = [];
     for (let i = 0; i < validated.quantity; i++) {
-      // Generate a unique token ID
-      const tokenId = `TEST-${Date.now()}-${i}-${Math.random().toString(36).substring(7)}`;
+      // Generate a unique token ID (BigInt based on timestamp + random suffix)
+      const tokenId = BigInt(Date.now()) * BigInt(1000) + BigInt(i) + BigInt(Math.floor(Math.random() * 1000));
 
       const ticket = await prisma.ticket.create({
         data: {
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       },
       tickets: tickets.map(t => ({
         id: t.id,
-        tokenId: t.tokenId,
+        tokenId: t.tokenId?.toString(),
         status: t.status,
       })),
     }, { status: 201 });
