@@ -8,11 +8,11 @@ import {
   LayoutDashboard,
   Calendar,
   Wallet,
-  DollarSign,
   Settings,
   Plus,
   BarChart3,
   QrCode,
+  Ticket,
 } from 'lucide-react';
 
 export interface SidebarLink {
@@ -23,13 +23,13 @@ export interface SidebarLink {
 }
 
 const creatorLinks: SidebarLink[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { label: 'Events', href: '/dashboard/events', icon: <Calendar className="w-5 h-5" /> },
+  { label: 'Overview', href: '/dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
+  { label: 'My Events', href: '/dashboard/events', icon: <Calendar className="w-5 h-5" /> },
+  { label: 'Tickets Sold', href: '/dashboard/tickets', icon: <Ticket className="w-5 h-5" /> },
   { label: 'Analytics', href: '/dashboard/analytics', icon: <BarChart3 className="w-5 h-5" /> },
-  { label: 'Royalties', href: '/dashboard/royalties', icon: <Wallet className="w-5 h-5" /> },
-  { label: 'Payouts', href: '/dashboard/payouts', icon: <DollarSign className="w-5 h-5" /> },
+  { label: 'Royalties', href: '/royalties', icon: <Wallet className="w-5 h-5" /> },
   { label: 'Scanner', href: '/scanner', icon: <QrCode className="w-5 h-5" /> },
-  { label: 'Settings', href: '/dashboard/settings', icon: <Settings className="w-5 h-5" /> },
+  { label: 'Settings', href: '/settings', icon: <Settings className="w-5 h-5" /> },
 ];
 
 export interface SidebarProps {
@@ -58,7 +58,7 @@ export function Sidebar({ links = creatorLinks, className }: SidebarProps) {
         <ul className="space-y-1">
           {links.map((link) => {
             const isActive = pathname === link.href ||
-              (link.href !== '/dashboard' && pathname.startsWith(link.href));
+              (link.href !== '/dashboard' && link.href !== '/royalties' && link.href !== '/scanner' && link.href !== '/settings' && pathname.startsWith(link.href));
 
             return (
               <li key={link.href}>
